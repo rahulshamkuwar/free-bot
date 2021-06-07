@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS guilds (
     WelcomeMessage text DEFAULT "disabled",
     WelcomeChannelID integer DEFAULT 0,
     Logs text DEFAULT "disabled",
-    LogsChannelID integer DEFAULT 0
+    LogsChannelID integer DEFAULT 0,
+    MutedRoleID INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS exp (
@@ -13,3 +14,8 @@ CREATE TABLE IF NOT EXISTS exp (
     UserLevel integer DEFAULT 0,
     XPLock text DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS mutes (
+    UserID integer PRIMARY KEY,
+    EndTime text
+)
