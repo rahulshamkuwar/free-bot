@@ -1,9 +1,9 @@
 from asyncio.tasks import sleep
 from discord import Intents
-from discord.errors import Forbidden, HTTPException
+from discord.errors import Forbidden, HTTPException, InvalidArgument
 from discord.ext.commands import Bot as BotBase
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from discord.ext.commands import CommandNotFound, when_mentioned_or, command, has_permissions
+from discord.ext.commands import CommandNotFound, when_mentioned_or
 from pathlib import Path
 from discord.ext.commands.context import Context
 
@@ -78,16 +78,18 @@ class Bot(BotBase):
             
         raise
     
-    async def on_command_error(self, context, exception):
+    async def on_command_error(self, ctx, exception):
         if isinstance(exception, CommandNotFound):
             pass
         elif isinstance(exception, MissingRequiredArgument):
             pass
+        elif isinstance(exception, InvalidArgument):
+            await ctx.send("Please provide the correct argument type.")
         elif hasattr(exception, "original"):
             if isinstance(exception.original, HTTPException):
-                await context.send("Unable to send message.")
+                await ctx.send("Unable to send message.")
             elif isinstance(exception.original, Forbidden):
-                await context.send("I do not have permissions to do that.")
+                await ctx.send("I do not have permissions to do that.")
             else :
                 raise exception.original
         else:

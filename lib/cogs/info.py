@@ -27,7 +27,7 @@ class Info(Cog):
         await ctx.send(embed = embed)
 
     @command(name = "serverinfo", aliases = ["si", "guildinfo", "gi"], help = "Get information about a specified server.")
-    async def server_info(self, ctx,):
+    async def server_info(self, ctx):
         embed = Embed(title="Server information",
 					  color=ctx.guild.owner.color,
 					  timestamp=datetime.utcnow())

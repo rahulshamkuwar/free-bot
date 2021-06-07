@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from discord.embeds import Embed
-from discord.ext.commands import Cog, command, has_permissions, TextChannelConverter, CheckFailure
+from discord.ext.commands import Cog, command, has_permissions, TextChannelConverter, MissingPermissions
 from discord import Embed, mentions
 from ..db import db
 
@@ -31,8 +31,8 @@ class Log(Cog):
     
     @logs.error
     async def logs_error(self, ctx, exception):
-        if isinstance(exception, CheckFailure):
-            await ctx.send("You need the Manage Messages permissions to do that.")
+        if isinstance(exception, MissingPermissions):
+            await ctx.send("User does not have permissions to manage server..")
     
     @Cog.listener()
     async def on_member_updates(self, before, after):

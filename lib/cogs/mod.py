@@ -1,14 +1,16 @@
+from enum import auto
+from better_profanity import profanity
+from re import search
 from datetime import datetime
 from typing import Optional
-from discord import Role, Permissions
+from discord import Role, Permissions, Embed, Member
+from discord.channel import TextChannel
 from discord.ext import commands
-from discord.ext.commands import Cog, Converter, command, has_permissions, bot_has_permissions, CheckFailure, Greedy, MissingRequiredArgument, MemberConverter, BotMissingPermissions, MissingPermissions
+from discord.ext.commands import Cog, Converter, command, has_permissions, bot_has_permissions, MissingRequiredArgument, MemberConverter, BotMissingPermissions, MissingPermissions
 import asyncio
-
-from discord.ext.commands.bot import Bot
 from ..db import db
-from discord import Embed, Member
 
+profanity.load_censor_words_from_file("./data/profanity.txt")
 class DurationConverter(Converter):
     async def convert(self, ctx, argument):
         amount = argument[:-1]
@@ -21,6 +23,7 @@ class DurationConverter(Converter):
 class Mod(Cog):
     def __init__(self, bot):
         self.bot = bot
+        # self.url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
     
     #Events
     @Cog.listener()
@@ -28,7 +31,117 @@ class Mod(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("mod")
     
+    @Cog.listener()
+    async def on_message(self, message):
+        if not message.author.bot:
+            if not message.author.guild_permissions.is_superset(Permissions.manage_guild):
+                profanity = db.field("SELECT Profanity FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                # auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                if profanity == "enabled":
+                    if profanity.contains_profanity(message.content):
+                        await message.delete()
+                        await message.channel.send("You can't use that word here.", delete_after = 10)
+                # elif auto_links == "enabled":
+                #     if search(self.url_regex, message.content):
+                #         await message.delete()
+                #         await message.channel.send("You can't send links in this channel.", delete_after = 10)
+
+    
     #Commands
+
+    # @command(name = "autolinks", help = "Select if to automatically delete external links or not. Send enaled or disabled after command to specify which one.")
+    # @has_permissions(manage_guild = True)
+    # async def auto_links(self, ctx, passed: str):
+    #     if passed == "enabled":
+    #         db.execute("UPDATE guilds SET AutoLinks = ? WHERE GuildID = ?", passed, ctx.guild.id)
+    #     elif passed == "disabled":
+    #         db.execute("UPDATE guilds SET AutoLinks = ? WHERE GuildID = ?", passed, ctx.guild.id)
+    #     else:
+    #         ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
+    
+    # @auto_links.error
+    # async def auto_links_error(self, ctx, error):
+    #     if isinstance(error, MissingRequiredArgument):
+    #             await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
+    #     elif isinstance(error, MissingPermissions):
+    #         await ctx.send("User does not have permissions to manage server.")
+    
+    # @command(name = "linksaddchannel", help = "Select which channel to ignore deleting links.", aliases = ["lac"])
+    # @has_permissions(manage_guild = True)
+    # async def links_add_channel(self, ctx, passed: TextChannel):
+    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+    #     if auto_links == "enabled":
+    #         db.execute("UPDATE guilds SET AutoLinksID = ? WHERE GuildID = ?", passed.id, ctx.guild.id)
+    #     elif auto_links == "disabled":
+    #         ctx.send("Please enable `autolinks` first before using this command.")
+
+    # @links_add_channel.error
+    # async def links_add_channel_error(self, ctx, error):
+    #     if isinstance(error, MissingRequiredArgument):
+    #             await ctx.send("Please specify which channel to ignore for external links.")
+    #     elif isinstance(error, MissingPermissions):
+    #         await ctx.send("User does not have permissions to manage server.")
+
+    # @command(name = "linksremovechannel", help = "Remove a channel from ignored channels for external links.", aliases = ["lrc"])
+    # @has_permissions(manage_guild = True)
+    # async def links_add_channel(self, ctx, passed: TextChannel):
+    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+    #     if auto_links == "enabled":
+    #         db.execute("UPDATE guilds SET AutoLinksID = ? WHERE GuildID = ?", passed.id, ctx.guild.id)
+    #     elif auto_links == "disabled":
+    #         ctx.send("Please enable `autolinks` first before using this command.")
+
+    @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send enaled or disabled after command to specify which one.")
+    @has_permissions(manage_guild = True)
+    async def auto_profanity(self, ctx, passed: str):
+        if passed == "enabled":
+                db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
+        elif passed == "disabled":
+            db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
+        else:
+            ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto profanity.")
+    
+    @auto_profanity.error
+    async def auto_profanity_error(self, ctx, error):
+        if isinstance(error, MissingRequiredArgument):
+                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable welcome messages.")
+        elif isinstance(error, MissingPermissions):
+            await ctx.send("User does not have permissions to manage server.")
+
+    @command(name = "addprofanity", help = "Add a list of words seperated by spaces to the profanity list.", aliases = ["addswears", "addcurses"])
+    @has_permissions(manage_guild = True)
+    async def add_profanity(self, ctx, *words):
+        with open("./data/profanity.txt", "a", encoding = "utf-8") as f:
+            f.write("".join([f"{word}\n" for word in words]))
+        profanity.load_censor_words_from_file("./data/profanity.txt")
+        await ctx.send("Words have been added to profanity list.")
+    
+    @add_profanity.error
+    async def add_profanity_error(self, ctx, error):
+        if isinstance(error, MissingRequiredArgument):
+                await ctx.send("Please specify a list of words seperated by spaces to add to the profanity list.")
+        elif isinstance(error, MissingPermissions):
+            await ctx.send("User does not have permissions to manage server.")
+    
+    @command(name = "delprofanity", help = "Remove a list of words seperated by spaces from the profanity list.", aliases = ["removeprofanity", "delswears", "delcurses", "removeswears", "removecurses"])
+    @has_permissions(manage_guild = True)
+    async def remove_profanity(self, ctx, *words):
+        with open("./data/profanity.txt", "r", encoding = "utf-8") as f:
+            stored = [word.strip() for word in f.readlines()]
+
+        with open("./data/profanity.txt", "w", encoding = "utf-8") as f:
+            f.write("".join([f"{word}\n" for word in stored if word not in words]))
+        
+        profanity.load_censor_words_from_file("./data/profanity.txt")
+        await ctx.send("Words have been added to profanity list.")
+    
+    @remove_profanity.error
+    async def remove_profanity_error(self, ctx, error):
+        if isinstance(error, MissingRequiredArgument):
+                await ctx.send("Please specify a list of words seperated by spaces to remove from the profanity list.")
+        elif isinstance(error, MissingPermissions):
+            await ctx.send("User does not have permissions to manage server.")
+
     @command(name="ban", help="Ban a specified user.")
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
