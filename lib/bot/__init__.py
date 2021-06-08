@@ -7,13 +7,14 @@ from discord.ext.commands import CommandNotFound, when_mentioned_or
 from pathlib import Path
 from discord.ext.commands.context import Context
 
-from discord.ext.commands.errors import MissingRequiredArgument
+from discord.ext.commands.errors import BadArgument, MissingPermissions, MissingRequiredArgument
 
 from ..db import db
 
 PREFIX = '!'
 OWNER_IDS = [266745502563958784]
 COGS = [p.stem for p in Path(".").glob("./lib/cogs/*.py")]
+IGNORE_EXCEPTIONS = (BadArgument, MissingRequiredArgument, MissingPermissions)
 
 def get_prefix(bot, message):
     prefix = db.field("SELECT Prefix FROM guilds WHERE GuildID =?", message.guild.id)
@@ -46,10 +47,24 @@ class Bot(BotBase):
             self.load_extension(f"lib.cogs.{cog}")
             print(f"{cog} cog loaded")
         print("setup complete")
+
+    def update_db(self):
+        db.multiexec("INSERT OR IGNORE INTO guilds (GuildID) VALUES (?)", ((guild.id,) for guild in self.guilds))
+        db.multiexec("INSERT OR IGNORE INTO exp (UserID, GuildID) VALUES (?, ?)", ((member.id, member.guild.id) for guild in self.guilds for member in guild.members if not member.bot))
+        stored_members = db.records("SELECT UserID, GuildID FROM exp")
+        to_remove = []
+        for _id, guild_id in stored_members:
+            guild = self.get_guild(guild_id)
+            if not guild.get_member(_id):
+                to_remove.append((_id, guild.id))
+
+        if to_remove:
+            db.multiexec("DELETE FROM exp WHERE UserID = ? AND GuildID = ?",((_id, guild) for _id, guild in to_remove))
+        
+        db.commit()
     
     def run(self, version):
         self.VERSION = version
-        
         print("runnnig setup...")
         self.setup()
 
@@ -73,16 +88,15 @@ class Bot(BotBase):
         print("bot disconnected")
     
     async def on_error(self, err, *args, **kwargs):
-        if err == "on_command_error":
+        if err not in IGNORE_EXCEPTIONS and err == "on_command_error":
             await args[0].send("Something went wrong.")
-            
         raise
     
     async def on_command_error(self, ctx, exception):
-        if isinstance(exception, CommandNotFound):
+        if any([isinstance(exception, error) for error in IGNORE_EXCEPTIONS]):
             pass
-        elif isinstance(exception, MissingRequiredArgument):
-            pass
+        elif isinstance(exception, CommandNotFound):
+            await ctx.send("That command does not exist.")
         elif isinstance(exception, InvalidArgument):
             await ctx.send("Please provide the correct argument type.")
         elif hasattr(exception, "original"):
@@ -104,6 +118,8 @@ class Bot(BotBase):
             
             self.ready = True
             print("bot ready")
+
+            self.update_db()
 
         else:
             print("bot reconnnected")

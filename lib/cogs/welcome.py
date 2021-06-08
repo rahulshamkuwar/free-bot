@@ -1,3 +1,5 @@
+import datetime
+from discord.embeds import Embed
 from discord.ext.commands import command, has_permissions, Cog, CheckFailure, TextChannelConverter, MissingPermissions
 from ..db import db
 
@@ -15,15 +17,17 @@ class Welcome(Cog):
     async def welcome_message(self, ctx, passed: str, channel: TextChannelConverter = None):
         if passed == "enabled":
             if channel is None:
-                ctx.send("Please specify a channel to send welcome messages to.")
+                await ctx.send("Please specify a channel to send welcome messages to.")
             else:
                 db.execute("UPDATE guilds SET WelcomeMessage = ? WHERE GuildID = ?", passed, ctx.guild.id)
                 db.execute("UPDATE guilds SET WelcomeChannelID = ? WHERE GuildID = ?", channel.id, ctx.guild.id)
+                await ctx.send("Welcome message enabled and welcome channel set.")
         elif passed == "disabled":
             db.execute("UPDATE guilds SET WelcomeMessage = ? WHERE GuildID = ?", passed, ctx.guild.id)
             db.execute("UPDATE guilds SET WelcomeChannelID = ? WHERE GuildID = ?", 0, ctx.guild.id)
+            await ctx.send("Welcome message disabled and welcome channel removed.")
         else:
-            ctx.send("Please specify `enabled` or `disabled` after command to enable or disable welcome messages.")
+            await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable welcome messages.")
     
     @welcome_message.error
     async def welcome_message_error(self, ctx, exception):
@@ -32,19 +36,30 @@ class Welcome(Cog):
 
     @Cog.listener()
     async def on_memeber_join(self, member):
-        send_message = db.field("SELECT WelcomeMessage FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+        send_message = db.field("SELECT WelcomeMessage FROM guilds WHERE GuildID =?", member.guild.id)
         if send_message == "enabled":
-            channel = db.field("SELECT WelcomeChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+            channel = db.field("SELECT WelcomeChannelID FROM guilds WHERE GuildID =?", member.guild.id)
             await self.bot.get_channel(channel).send(f"Welcome {member.mention}! Please remember to adhere to the rules and have fun!")
-        exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+        exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", member.guild.id)
         if exp == "enabled":
-            db.execute("INSERT INTO exp (UserID) VALUES (?)", member.id)
+            db.execute("INSERT INTO exp (UserID, GuildID) VALUES (?, ?)", member.id, member.guild.id)
+        send_log = db.field("SELECT Logs FROM guilds WHERE GuildID =?", member.guild.id)
+        if send_log == "enabled":
+            log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", member.guild.id)
+            embed = Embed(title = "Member Joined Server", color = 0xDD2222, timestamp = datetime.utcnow())
+            embed.set_thumbnail(url = member.default_avatar_url)
+            fields = [("Member", member.mention, False),
+                    ("Account Created On", member.created_at.strftime("%m/%d/%Y %H:%M:%S"), False),]
+            for name, value, inline in fields:
+                embed.add_field(name = name, value = value, inline = inline)
+            await self.bot.get_channel(log_channel).send(embed = embed)
 
     @Cog.listener()
     async def on_member_remove(self, member):
-        exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+        exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", member.guild.id)
         if exp == "enabled":
-            db.execute("DELETE FROM exp WHERE UserID = ?", member.id)
+            db.execute("DELETE FROM exp WHERE UserID = ? AND GuildID = ?", member.id, member.guild.id)
+        
     
 def setup(bot):
     bot.add_cog(Welcome(bot))

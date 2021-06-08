@@ -13,7 +13,7 @@ class Info(Cog):
     @command(name = "userinfo", aliases = ["ui", "memberinfo", "mi"], help = "Get information about a specified user.")
     async def user_info(self, ctx, target: Optional[Member]):
         member = target or ctx.author
-        embed = Embed(title = "User Information", color = member.color, timestamp = datetime.utcnow)
+        embed = Embed(title = "User Information", color = member.color, timestamp = datetime.utcnow())
         embed.set_thumbnail(url = member.avatar_url)
         fields = [("ID", member.id, False), 
                   ("Name", str(member), True),

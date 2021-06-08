@@ -34,10 +34,10 @@ class Mod(Cog):
     @Cog.listener()
     async def on_message(self, message):
         if not message.author.bot:
-            if not message.author.guild_permissions.is_superset(Permissions.manage_guild):
-                profanity = db.field("SELECT Profanity FROM guilds WHERE GuildID =?", self.ctx.guild.id)
-                # auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
-                if profanity == "enabled":
+            if not message.author.guild_permissions.is_superset(Permissions(manage_guild = True)):
+                check_profanity = db.field("SELECT Profanity FROM guilds WHERE GuildID =?", message.guild.id)
+                # auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", message.guild.id)
+                if check_profanity == "enabled":
                     if profanity.contains_profanity(message.content):
                         await message.delete()
                         await message.channel.send("You can't use that word here.", delete_after = 10)
@@ -57,7 +57,7 @@ class Mod(Cog):
     #     elif passed == "disabled":
     #         db.execute("UPDATE guilds SET AutoLinks = ? WHERE GuildID = ?", passed, ctx.guild.id)
     #     else:
-    #         ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
+    #         await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
     
     # @auto_links.error
     # async def auto_links_error(self, ctx, error):
@@ -69,7 +69,7 @@ class Mod(Cog):
     # @command(name = "linksaddchannel", help = "Select which channel to ignore deleting links.", aliases = ["lac"])
     # @has_permissions(manage_guild = True)
     # async def links_add_channel(self, ctx, passed: TextChannel):
-    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", ctx.guild.id)
     #     if auto_links == "enabled":
     #         db.execute("UPDATE guilds SET AutoLinksID = ? WHERE GuildID = ?", passed.id, ctx.guild.id)
     #     elif auto_links == "disabled":
@@ -85,21 +85,23 @@ class Mod(Cog):
     # @command(name = "linksremovechannel", help = "Remove a channel from ignored channels for external links.", aliases = ["lrc"])
     # @has_permissions(manage_guild = True)
     # async def links_add_channel(self, ctx, passed: TextChannel):
-    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+    #     auto_links = db.field("SELECT AutoLinks FROM guilds WHERE GuildID =?", ctx.guild.id)
     #     if auto_links == "enabled":
     #         db.execute("UPDATE guilds SET AutoLinksID = ? WHERE GuildID = ?", passed.id, ctx.guild.id)
     #     elif auto_links == "disabled":
-    #         ctx.send("Please enable `autolinks` first before using this command.")
+    #         await ctx.send("Please enable `autolinks` first before using this command.")
 
     @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send enaled or disabled after command to specify which one.")
     @has_permissions(manage_guild = True)
     async def auto_profanity(self, ctx, passed: str):
         if passed == "enabled":
                 db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
+                await ctx.send("Auto profanity checks are enabled.")
         elif passed == "disabled":
             db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
+            await ctx.send("Auto profanity checks are disabled.")
         else:
-            ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto profanity.")
+            await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto profanity.")
     
     @auto_profanity.error
     async def auto_profanity_error(self, ctx, error):
@@ -133,7 +135,7 @@ class Mod(Cog):
             f.write("".join([f"{word}\n" for word in stored if word not in words]))
         
         profanity.load_censor_words_from_file("./data/profanity.txt")
-        await ctx.send("Words have been added to profanity list.")
+        await ctx.send("Words have been removed from profanity list.")
     
     @remove_profanity.error
     async def remove_profanity_error(self, ctx, error):
@@ -149,15 +151,16 @@ class Mod(Cog):
         if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
             await member.ban(reason = reason)
             await ctx.send(f"{member.mention} has been banned.")
-            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
             if send_message == "enabled":
-                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                 embed = Embed(title = "Member Banned", color = 0xDD2222, timestamp = datetime.utcnow())
                 fields = [("Member", member.mention, False),
                         ("Banned by", ctx.author.mention, False),
                         ("Reason", reason, False)]
                 for name, value, inline in fields:
                     embed.add_field(name = name, value = value, inline = inline)
+                embed.set_thumbnail(url = member.default_avatar_url)
                 await self.bot.get_channel(log_channel).send(embed = embed)
         elif member.guild_permissions.administrator:
             await ctx.send(f"Cannot ban {member.mention} since they are an admin.")
@@ -187,10 +190,11 @@ class Mod(Cog):
             await ctx.send(f"{member.mention} has been banned for {amount}{unit}.")
             await asyncio.sleep(amount * multiplier[unit])
             await ctx.guild.unban(member)
-            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
             if send_message == "enabled":
-                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                 embed = Embed(title = "Member Temp Banned", color = 0xDD2222, timestamp = datetime.utcnow())
+                embed.set_thumbnail(url = member.default_avatar_url)
                 fields = [("Member", member.mention, False),
                         ("Banned by", ctx.author.mention, False),
                         ("Reason", reason, False),
@@ -225,10 +229,11 @@ class Mod(Cog):
         if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
             await member.kick(reason = reason)
             await ctx.send(f"{member.mention} has been kicked.")
-            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
             if send_message == "enabled":
-                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                 embed = Embed(title = "Member Kicked", color = 0xDD2222, timestamp = datetime.utcnow())
+                embed.set_thumbnail(url = member.default_avatar_url)
                 fields = [("Member", member.mention, False),
                         ("Kicked by", ctx.author.mention, False),
                         ("Reason", reason, False)]
@@ -283,11 +288,11 @@ class Mod(Cog):
     async def muted_role(self, ctx, role: Optional[Role] = None):
         if role == None:
             permissions = Permissions(add_reactions = False, connect = False, send_messages = False, send_tts_messages = False, use_slash_commands = False)
-            muted_role = await ctx.guild.create_role(name = "Muted", permissions = permissions, color = 0x251616)
-            db.execute("UPDATE guilds SET MutedRoleID = ? WHERE GuildID = ?", ctx.guild.id, muted_role.id)
-            await ctx.send(f"{muted_role.mention} has been created.")
+            new_muted_role = await ctx.guild.create_role(name = "Muted", permissions = permissions, color = 0x251616)
+            db.execute("UPDATE guilds SET MutedRoleID = ? WHERE GuildID = ?", new_muted_role.id, ctx.guild.id)
+            await ctx.send(f"{new_muted_role.mention} has been created.")
         else:
-            db.execute("UPDATE guilds SET MutedRoleID = ? WHERE GuildID = ?", ctx.guild.id, role.id)
+            db.execute("UPDATE guilds SET MutedRoleID = ? WHERE GuildID = ?", role.id, ctx.guild.id)
             await ctx.send(f"{role.mention} has been added to database.")
     
     @muted_role.error
@@ -301,21 +306,22 @@ class Mod(Cog):
     @bot_has_permissions(manage_messages = True, manage_roles = True)
     @has_permissions(manage_messages = True)
     async def mute(self, ctx, member: MemberConverter, duration: DurationConverter, *, reason: str ):
-        muted_role_id = db.field("SELECT MutedRoleID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+        muted_role_id = db.field("SELECT MutedRoleID FROM guilds WHERE GuildID =?", ctx.guild.id)
         if muted_role_id == 0:
             await ctx.send("Please define a muted role. This can be done with the `muted-role` command.")
         else:
-            role = await ctx.guild.get_role(muted_role_id)
+            role = ctx.guild.get_role(muted_role_id)
             if not role in member.roles:
                 if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
                     multiplier = {"s" : 1, "m" : 60, "h" : 3600, "d" : 86400, "w" : 604800, "mth" : 2.628e+6, "y" : 3.154e+7}
                     amount, unit = duration
                     await member.add_roles(muted_role_id, reason = reason)
                     await ctx.send(f"{member.mention} has been muted for {amount}{unit}.")
-                    send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                    send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
                     if send_message == "enabled":
-                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                         embed = Embed(title = "Member Muted", color = 0xDD2222, timestamp = datetime.utcnow())
+                        embed.set_thumbnail(url = member.default_avatar_url)
                         fields = [("Member", member.mention, False),
                                 ("Muted by", ctx.author.mention, False),
                                 ("Reason", reason, False)]
@@ -325,8 +331,9 @@ class Mod(Cog):
                     await asyncio.sleep(amount * multiplier[unit])
                     await member.remove_roles(muted_role_id, reason = "Automatic unmute.")
                     if send_message == "enabled":
-                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                         embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
+                        embed.set_thumbnail(url = member.default_avatar_url)
                         fields = [("Member", member.mention, False),
                                 ("Unmuted by", ctx.author.mention, False),
                                 ("Reason", "Automatic unmute", False)]
@@ -359,16 +366,17 @@ class Mod(Cog):
     @bot_has_permissions(manage_messages = True, manage_roles = True)
     @has_permissions(manage_messages = True)
     async def unmute(self, ctx, member: MemberConverter, *, reason: str ):
-        muted_role_id = db.field("SELECT MutedRoleID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+        muted_role_id = db.field("SELECT MutedRoleID FROM guilds WHERE GuildID =?", ctx.guild.id)
         if muted_role_id == 0:
             await ctx.send("Please define a muted role. This can be done with the `muted-role` command.")
         else:
             if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
                 await member.remove_roles(muted_role_id, reason = reason)
-                send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
                 if send_message == "enabled":
-                    log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", self.ctx.guild.id)
+                    log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
                     embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
+                    embed.set_thumbnail(url = member.default_avatar_url)
                     fields = [("Member", member.mention, False),
                             ("Unmuted by", ctx.author.mention, False),
                             ("Reason", reason, False)]
@@ -409,9 +417,6 @@ class Mod(Cog):
             await ctx.send("User does not have permissions to manage messages.")
         elif isinstance(error, BotMissingPermissions):
             await ctx.send("I do not have permissions to manage messages.")
-        
-
-    
 
 def setup(bot):
     bot.add_cog(Mod(bot))

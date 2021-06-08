@@ -1,3 +1,4 @@
+from lib.db.db import field
 from typing import Optional
 
 from discord import Embed
@@ -45,7 +46,8 @@ class HelpMenu(ListPageSource):
 		fields = []
 
 		for entry in entries:
-			fields.append((entry.brief or "No description", syntax(entry)))
+			fields.append((entry.name or "No description", syntax(entry)))
+			fields.append(("Command description", entry.help))
 
 		return await self.write_page(menu, fields)
 

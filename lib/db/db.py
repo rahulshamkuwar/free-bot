@@ -10,6 +10,7 @@ cur = cxn.cursor()
 
 def with_commit(func):
     def inner(*args, **kwargs):
+        func(*args, **kwargs)
         commit()
 
     return inner
@@ -53,5 +54,5 @@ def multiexec(command, *values):
     cur.executemany(command, *values)
 
 def scriptexec(path):
-    with open(path, "r", ecoding = "utf-8") as script:
+    with open(path, "r", encoding = "utf-8") as script:
         cur.executescript(script.read())

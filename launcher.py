@@ -1,6 +1,6 @@
+""" version type """
+
 from lib.bot import bot
 
-# version type
-VERSION = "0.0.1"
-# run the bot with the specified version
+VERSION = "0.0.7"
 bot.run(VERSION)

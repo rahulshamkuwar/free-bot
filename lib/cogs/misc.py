@@ -8,7 +8,7 @@ class Misc(Cog):
     @command(name = "prefix", help = "Select a prefix to trigger Freebot's functions.")
     @has_permissions(manage_guild = True)
     async def change_prefix(self, ctx, new_prefix: str):
-        if len(new_prefix > 5):
+        if len(new_prefix) > 5:
             await ctx.send("The prefix cannot be longer than 5 characters in length.")
         else:
             db.execute("UPDATE guilds SET Prefix = ? WHERE GuildID = ?", new_prefix, ctx.guild.id)
