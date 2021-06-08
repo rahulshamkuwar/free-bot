@@ -95,8 +95,6 @@ class Bot(BotBase):
     async def on_command_error(self, ctx, exception):
         if any([isinstance(exception, error) for error in IGNORE_EXCEPTIONS]):
             pass
-        elif isinstance(exception, CommandNotFound):
-            await ctx.send("That command does not exist.")
         elif isinstance(exception, InvalidArgument):
             await ctx.send("Please provide the correct argument type.")
         elif hasattr(exception, "original"):
