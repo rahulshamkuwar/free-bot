@@ -1,10 +1,11 @@
+from os import XATTR_CREATE
 from random import randint
 from datetime import datetime, timedelta
 from typing import Optional
 from discord.channel import TextChannel
 from discord import Member
-from discord.ext.commands import command, has_permissions, Cog, CheckFailure, MissingPermissions
-from discord.ext.commands.errors import BadArgument
+from discord.ext.commands import command, has_permissions, Cog, MissingPermissions
+from discord.ext.commands.errors import BadArgument, MissingRequiredArgument
 from ..db import db
 
 class Exp(Cog):
@@ -49,6 +50,8 @@ class Exp(Cog):
     async def exp_error(self, ctx, exception):
         if isinstance(exception, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
+        elif isinstance(exception, MissingRequiredArgument):
+            await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable experience levels.")
     
     @command(name = "expchannel", help = "Select which channel to send experience level ups to. Defaults to channel with user's last sent message.", aliases = ["experiencechannel", "xpch"])
     @has_permissions(manage_guild = True)
@@ -66,6 +69,8 @@ class Exp(Cog):
     async def exp_channel_error(self, ctx, exception):
         if isinstance(exception, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
+        elif isinstance(exception, MissingRequiredArgument):
+            await ctx.send("Please specify a channel to send messages to.")
 
     @command(name = "remexpchannel", help = "Select which channel to send experience level ups to. Defaults to channel with user's last sent message.", aliases = ["remexperiencechannel", "rxpch"])
     @has_permissions(manage_guild = True)
@@ -112,8 +117,8 @@ class Exp(Cog):
     async def rank_error(self, ctx, exception):
         if isinstance(exception, BadArgument):
             await ctx.send("Please specify which user to check the rank of. Or leave it blank and check your own rank.")
-
-    @command()
+        elif isinstance(exception, BadArgument):
+            await ctx.send("Please specify which user to check the rank of.")
 
     @Cog.listener()
     async def on_message(self, message):

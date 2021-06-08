@@ -8,6 +8,9 @@ from discord.channel import TextChannel
 from discord.ext import commands
 from discord.ext.commands import Cog, Converter, command, has_permissions, bot_has_permissions, MissingRequiredArgument, MemberConverter, BotMissingPermissions, MissingPermissions
 import asyncio
+from discord.ext.commands.converter import UserConverter
+
+from discord.ext.commands.errors import BadArgument, MemberNotFound
 from ..db import db
 
 profanity.load_censor_words_from_file("./data/profanity.txt")
@@ -19,6 +22,12 @@ class DurationConverter(Converter):
         if amount.isdigit() and unit in ["s", "m", "h", "d", "w", "mth", "y"]:
             return (int(amount), unit)
         raise commands.BadArgument(message="Not a valid duration!")
+
+class BannedUser(Converter):
+    async def convert(self, ctx, arg):
+        if ctx.guild.me.guild_permissions.ban_members:
+            pass
+
 
 class Mod(Cog):
     def __init__(self, bot):
@@ -96,7 +105,7 @@ class Mod(Cog):
     async def auto_profanity(self, ctx, passed: str):
         if passed == "enabled":
                 db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
-                await ctx.send("Auto profanity checks are enabled.")
+                await ctx.send("Auto profanity checks have been enabled.")
         elif passed == "disabled":
             db.execute("UPDATE guilds SET Profanity = ? WHERE GuildID = ?", passed, ctx.guild.id)
             await ctx.send("Auto profanity checks are disabled.")
@@ -147,9 +156,29 @@ class Mod(Cog):
     @command(name="ban", help="Ban a specified user.")
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
-    async def ban(self, ctx, member: MemberConverter, *, reason: str):
-        if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
-            await member.ban(reason = reason)
+    async def ban(self, ctx, member: UserConverter, *, reason: str):
+        if member in ctx.guild.members:
+            member = MemberConverter(member.id)
+            if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
+                await ctx.guild.ban(user = member, reason = reason)
+                await ctx.send(f"{member.mention} has been banned.")
+                send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
+                if send_message == "enabled":
+                    log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
+                    embed = Embed(title = "Member Banned", color = 0xDD2222, timestamp = datetime.utcnow())
+                    fields = [("Member", member.mention, False),
+                            ("Banned by", ctx.author.mention, False),
+                            ("Reason", reason, False)]
+                    for name, value, inline in fields:
+                        embed.add_field(name = name, value = value, inline = inline)
+                    embed.set_thumbnail(url = member.default_avatar_url)
+                    await self.bot.get_channel(log_channel).send(embed = embed)
+            elif member.guild_permissions.administrator:
+                await ctx.send(f"Cannot ban {member.mention} since they are an admin.")
+            else:
+                await ctx.send(f"Cannot ban {member.mention} since their role is higher than mine.")
+        else:
+            await ctx.guild.ban(user = member, reason = reason)
             await ctx.send(f"{member.mention} has been banned.")
             send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
             if send_message == "enabled":
@@ -162,18 +191,16 @@ class Mod(Cog):
                     embed.add_field(name = name, value = value, inline = inline)
                 embed.set_thumbnail(url = member.default_avatar_url)
                 await self.bot.get_channel(log_channel).send(embed = embed)
-        elif member.guild_permissions.administrator:
-            await ctx.send(f"Cannot ban {member.mention} since they are an admin.")
-        else:
-            await ctx.send(f"Cannot ban {member.mention} since their role is higher than mine.")
-    
+
     @ban.error
     async def ban_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to ban.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to ban.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User not found.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to ban.")
         elif isinstance(error, BotMissingPermissions):
@@ -186,7 +213,7 @@ class Mod(Cog):
         if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
             multiplier = {"s" : 1, "m" : 60, "h" : 3600, "d" : 86400, "w" : 604800, "mth" : 2.628e+6, "y" : 3.154e+7}
             amount, unit = duration
-            await member.ban(reason = reason)
+            await ctx.guild.ban(user = member, reason = reason)
             await ctx.send(f"{member.mention} has been banned for {amount}{unit}.")
             await asyncio.sleep(amount * multiplier[unit])
             await ctx.guild.unban(member)
@@ -211,12 +238,14 @@ class Mod(Cog):
     @tempban.error
     async def tempban_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to temp ban.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to temp ban.")
-            elif error.args.__contains__(DurationConverter):
+            elif error.param.name == "duration":
                 await ctx.send("Please specify a duration to temp ban.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User does not exist in this guild.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to ban.")
         elif isinstance(error, BotMissingPermissions):
@@ -248,10 +277,12 @@ class Mod(Cog):
     @kick.error
     async def kick_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to kick.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to kick.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User does not exist in this guild.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to kick.")
         elif isinstance(error, BotMissingPermissions):
@@ -260,23 +291,34 @@ class Mod(Cog):
     @command(name="unban", help="Unban a specified user.")
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
-    async def unban(self, ctx, member: MemberConverter, *, reason: str):
-        banned_users = await ctx.guild.bans()
-
-        for ban_entry in banned_users:
-            user = ban_entry.user
-            if (user.name, user.discriminator) == (member.name, member.discriminator):
-                await ctx.guild.unban(user, reason = reason)
-            return
-        await ctx.send(f"{member} has been unbanned.")
+    async def unban(self, ctx, user: UserConverter, *, reason: str):
+        banned_user = await ctx.guild.fetch_ban(user = user)
+        if banned_user:
+            await ctx.guild.unban(user, reason = reason)
+            await ctx.send(f"{user} has been unbanned.")
+            send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
+            if send_message == "enabled":
+                log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
+                embed = Embed(title = "Member Unbanned", color = 0xDD2222, timestamp = datetime.utcnow())
+                embed.set_thumbnail(url = user.default_avatar_url)
+                fields = [("Member", user.mention, False),
+                        ("Unbanned by", ctx.author.mention, False),
+                        ("Reason", reason, False)]
+                for name, value, inline in fields:
+                    embed.add_field(name = name, value = value, inline = inline)
+                await self.bot.get_channel(log_channel).send(embed = embed)
+        else:
+            await ctx.send(f"{user} is not banned from guild.")
     
     @unban.error
     async def unban_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to unban.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to unban.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User does not exist in this guild.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to ban.")
         elif isinstance(error, BotMissingPermissions):
@@ -315,7 +357,7 @@ class Mod(Cog):
                 if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
                     multiplier = {"s" : 1, "m" : 60, "h" : 3600, "d" : 86400, "w" : 604800, "mth" : 2.628e+6, "y" : 3.154e+7}
                     amount, unit = duration
-                    await member.add_roles(muted_role_id, reason = reason)
+                    await member.add_roles(role, reason = reason)
                     await ctx.send(f"{member.mention} has been muted for {amount}{unit}.")
                     send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
                     if send_message == "enabled":
@@ -329,17 +371,18 @@ class Mod(Cog):
                             embed.add_field(name = name, value = value, inline = inline)
                         await self.bot.get_channel(log_channel).send(embed = embed)
                     await asyncio.sleep(amount * multiplier[unit])
-                    await member.remove_roles(muted_role_id, reason = "Automatic unmute.")
-                    if send_message == "enabled":
-                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
-                        embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
-                        embed.set_thumbnail(url = member.default_avatar_url)
-                        fields = [("Member", member.mention, False),
-                                ("Unmuted by", ctx.author.mention, False),
-                                ("Reason", "Automatic unmute", False)]
-                        for name, value, inline in fields:
-                            embed.add_field(name = name, value = value, inline = inline)
-                        await self.bot.get_channel(log_channel).send(embed = embed)
+                    if role in member.roles:
+                        await member.remove_roles(role, reason = "Automatic unmute.")
+                        if send_message == "enabled":
+                            log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
+                            embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
+                            embed.set_thumbnail(url = member.default_avatar_url)
+                            fields = [("Member", member.mention, False),
+                                    ("Unmuted by", ctx.author.mention, False),
+                                    ("Reason", "Automatic unmute", False)]
+                            for name, value, inline in fields:
+                                embed.add_field(name = name, value = value, inline = inline)
+                            await self.bot.get_channel(log_channel).send(embed = embed)
 
                 elif member.guild_permissions.administrator:
                     await ctx.send(f"Cannot mute {member.mention} since they are an admin.")
@@ -351,12 +394,16 @@ class Mod(Cog):
     @mute.error
     async def mute_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to mute.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to mute.")
-            elif error.args.__contains__(DurationConverter):
+            elif error.param.name == "duration":
                 await ctx.send("Please specify a duration to mute.")
+        elif isinstance(error, BadArgument):
+            await ctx.send("Please specify a duration to mute.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User does not exist in this guild.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to manage messages.")
         elif isinstance(error, BotMissingPermissions):
@@ -370,31 +417,38 @@ class Mod(Cog):
         if muted_role_id == 0:
             await ctx.send("Please define a muted role. This can be done with the `muted-role` command.")
         else:
-            if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
-                await member.remove_roles(muted_role_id, reason = reason)
-                send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
-                if send_message == "enabled":
-                    log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
-                    embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
-                    embed.set_thumbnail(url = member.default_avatar_url)
-                    fields = [("Member", member.mention, False),
-                            ("Unmuted by", ctx.author.mention, False),
-                            ("Reason", reason, False)]
-                    for name, value, inline in fields:
-                        embed.add_field(name = name, value = value, inline = inline)
-                    await self.bot.get_channel(log_channel).send(embed = embed)
-            elif member.guild_permissions.administrator:
-                await ctx.send(f"Cannot unmute {member.mention} since they are an admin.")
+            role = ctx.guild.get_role(muted_role_id)
+            if role in member.roles:
+                if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
+                    await member.remove_roles(role, reason = reason)
+                    await ctx.send(f"{member.mention} is no longer muted.")
+                    send_message = db.field("SELECT Logs FROM guilds WHERE GuildID =?", ctx.guild.id)
+                    if send_message == "enabled":
+                        log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", ctx.guild.id)
+                        embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
+                        embed.set_thumbnail(url = member.default_avatar_url)
+                        fields = [("Member", member.mention, False),
+                                ("Unmuted by", ctx.author.mention, False),
+                                ("Reason", reason, False)]
+                        for name, value, inline in fields:
+                            embed.add_field(name = name, value = value, inline = inline)
+                        await self.bot.get_channel(log_channel).send(embed = embed)
+                elif member.guild_permissions.administrator:
+                    await ctx.send(f"Cannot unmute {member.mention} since they are an admin.")
+                else:
+                    await ctx.send(f"Cannot unmute {member.mention} since their role is higher than mine.")
             else:
-                await ctx.send(f"Cannot unmute {member.mention} since their role is higher than mine.")
+                await ctx.send(f"{member.mention} is not muted.")
     
     @unmute.error
     async def unmute_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-            if error.args.__contains__(Member):
+            if error.param.name == "member":
                 await ctx.send("Please specify a user to mute.")
-            elif error.args.__contains__(str):
+            elif error.param.name == "reason":
                 await ctx.send("Please specify a reason to mute.")
+        elif isinstance(error, MemberNotFound):
+            await ctx.send("User does not exist in this guild.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to manage messages.")
         elif isinstance(error, BotMissingPermissions):

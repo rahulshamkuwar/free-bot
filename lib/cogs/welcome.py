@@ -1,6 +1,6 @@
-import datetime
+from datetime import datetime
 from discord.embeds import Embed
-from discord.ext.commands import command, has_permissions, Cog, CheckFailure, TextChannelConverter, MissingPermissions
+from discord.ext.commands import command, has_permissions, Cog, TextChannelConverter, MissingPermissions
 from ..db import db
 
 class Welcome(Cog):
@@ -21,7 +21,7 @@ class Welcome(Cog):
             else:
                 db.execute("UPDATE guilds SET WelcomeMessage = ? WHERE GuildID = ?", passed, ctx.guild.id)
                 db.execute("UPDATE guilds SET WelcomeChannelID = ? WHERE GuildID = ?", channel.id, ctx.guild.id)
-                await ctx.send("Welcome message enabled and welcome channel set.")
+                await ctx.send(f"Welcome message enabled and welcome channel set to {channel.mention}.")
         elif passed == "disabled":
             db.execute("UPDATE guilds SET WelcomeMessage = ? WHERE GuildID = ?", passed, ctx.guild.id)
             db.execute("UPDATE guilds SET WelcomeChannelID = ? WHERE GuildID = ?", 0, ctx.guild.id)
@@ -35,7 +35,7 @@ class Welcome(Cog):
             await ctx.send("User does not have permissions to manage server.")
 
     @Cog.listener()
-    async def on_memeber_join(self, member):
+    async def on_member_join(self, member):
         send_message = db.field("SELECT WelcomeMessage FROM guilds WHERE GuildID =?", member.guild.id)
         if send_message == "enabled":
             channel = db.field("SELECT WelcomeChannelID FROM guilds WHERE GuildID =?", member.guild.id)
@@ -59,6 +59,16 @@ class Welcome(Cog):
         exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", member.guild.id)
         if exp == "enabled":
             db.execute("DELETE FROM exp WHERE UserID = ? AND GuildID = ?", member.id, member.guild.id)
+        send_log = db.field("SELECT Logs FROM guilds WHERE GuildID =?", member.guild.id)
+        if send_log == "enabled":
+            log_channel = db.field("SELECT LogsChannelID FROM guilds WHERE GuildID =?", member.guild.id)
+            embed = Embed(title = "Member Left Server", color = 0xDD2222, timestamp = datetime.utcnow())
+            embed.set_thumbnail(url = member.default_avatar_url)
+            fields = [("Member", member.mention, False),
+                    ("Account Created On", member.created_at.strftime("%m/%d/%Y %H:%M:%S"), False),]
+            for name, value, inline in fields:
+                embed.add_field(name = name, value = value, inline = inline)
+            await self.bot.get_channel(log_channel).send(embed = embed)
         
     
 def setup(bot):
