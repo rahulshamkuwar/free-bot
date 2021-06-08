@@ -103,9 +103,9 @@ class Exp(Cog):
     @command(name = "rank", help = "Display the rank of a specified user. If no user is specified the rank of the user sending the command will be shown.", aliases = ["rnk"])
     async def rank(self, ctx, member: Optional[Member]):
         member = member or ctx.author
-        ids = db.column("SELECT UserID FROM exp  WHERE UserID NOT IN (SELECT UserID FROM exp WHERE XP = 0) ORDER BY XP DESC")
+        ids = db.column("SELECT UserID FROM exp  WHERE UserID AND GuildID NOT IN (SELECT UserID FROM exp WHERE XP = 0 AND GuildID = ?) ORDER BY XP DESC", ctx.guild.id)
         if member.id in ids:
-            await ctx.send(f"{member.display_name} is rank {ids.index(member.id)+1} of len{len(ids)}.")
+            await ctx.send(f"{member.display_name} is rank {ids.index(member.id)+1} of {len(ids)}.")
         else:
             await ctx.send(f"{member.display_name} does not have a rank.")
     @rank.error
