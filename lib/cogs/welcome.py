@@ -12,7 +12,7 @@ class Welcome(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("welcome")
     
-    @command(name = "welcome-message", help = "Select if to have a welcome message or not. Send enaled or disabled after command to specify which one.")
+    @command(name = "welcome-message", help = "Select if to have a welcome message or not. Send enabled or disabled after the command to specify which one.")
     @has_permissions(manage_guild = True)
     async def welcome_message(self, ctx, passed: str, channel: TextChannelConverter = None):
         if passed == "enabled":

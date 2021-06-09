@@ -49,7 +49,7 @@ class Mod(Cog):
                 if check_profanity == "enabled":
                     if profanity.contains_profanity(message.content):
                         await message.delete()
-                        await message.channel.send("You can't use that word here.", delete_after = 10)
+                        await message.channel.send("You can't use that word here.", delete_after = 5)
                 # elif auto_links == "enabled":
                 #     if search(self.url_regex, message.content):
                 #         await message.delete()
@@ -58,7 +58,7 @@ class Mod(Cog):
     
     #Commands
 
-    # @command(name = "autolinks", help = "Select if to automatically delete external links or not. Send enaled or disabled after command to specify which one.")
+    # @command(name = "autolinks", help = "Select if to automatically delete external links or not. Send enabled or disabled after the command to specify which one.")
     # @has_permissions(manage_guild = True)
     # async def auto_links(self, ctx, passed: str):
     #     if passed == "enabled":
@@ -100,7 +100,7 @@ class Mod(Cog):
     #     elif auto_links == "disabled":
     #         await ctx.send("Please enable `autolinks` first before using this command.")
 
-    @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send enaled or disabled after command to specify which one.")
+    @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send enabled or disabled after the command to specify which one.")
     @has_permissions(manage_guild = True)
     async def auto_profanity(self, ctx, passed: str):
         if passed == "enabled":
@@ -324,7 +324,7 @@ class Mod(Cog):
         elif isinstance(error, BotMissingPermissions):
             await ctx.send("I do not have permissions to ban.")
     
-    @command(name = "muted-role", help = "Define a muted role. If no role is provided, a new one will be created")
+    @command(name = "muted-role", help = "Define a muted role. If no role is provided, a new one will be created.")
     @bot_has_permissions(manage_roles = True)
     @has_permissions(manage_messages = True, manage_roles = True)
     async def muted_role(self, ctx, role: Optional[Role] = None):

@@ -14,7 +14,7 @@ class Log(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("log")
 
-    @command(name = "logs", help = "Select if to have logs or not. Send enaled or disabled after command to specify which one.")
+    @command(name = "logs", help = "Select if to have logs or not. Send enabled or disabled after the command to specify which one.")
     @has_permissions(manage_guild = True)
     async def logs(self, ctx, passed: str, channel: TextChannelConverter = None):
         if passed == "enabled":

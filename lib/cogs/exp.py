@@ -33,7 +33,7 @@ class Exp(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("exp")
 
-    @command(name = "exp", help = "Select if to have experience levels or not. Send enaled or disabled after command to specify which one.", aliases = ["experience", "xp"])
+    @command(name = "exp", help = "Select if to have experience levels or not. Send enabled or disabled after the command to specify which one.", aliases = ["experience", "xp"])
     @has_permissions(manage_guild = True)
     async def exp(self, ctx, passed: str):
         if passed == "enabled":
@@ -72,7 +72,7 @@ class Exp(Cog):
         elif isinstance(exception, MissingRequiredArgument):
             await ctx.send("Please specify a channel to send messages to.")
 
-    @command(name = "remexpchannel", help = "Select which channel to send experience level ups to. Defaults to channel with user's last sent message.", aliases = ["remexperiencechannel", "rxpch"])
+    @command(name = "remexpchannel", help = "Remove the current channel that sends experience level ups.", aliases = ["remexperiencechannel", "rxpch"])
     @has_permissions(manage_guild = True)
     async def remove_exp_channel(self, ctx):
         exp = db.field("SELECT Experience FROM guilds WHERE GuildID =?", ctx.guild.id)

@@ -2,3 +2,4 @@ BOT_TOKEN.txt
 discord.log
 __pycache__
 *.db
+*.db-journal
