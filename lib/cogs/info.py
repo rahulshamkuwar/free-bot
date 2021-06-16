@@ -1,5 +1,6 @@
 from collections import namedtuple
 from datetime import datetime
+from lib.bot import Bot
 from typing import Optional
 from discord import Embed, embeds
 from typing import Optional
@@ -7,7 +8,7 @@ from discord.ext.commands import command, Cog
 from discord.member import Member
 
 class Info(Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: Bot):
         self.bot = bot
 
     @command(name = "userinfo", aliases = ["ui", "memberinfo", "mi"], help = "Get information about a specified user.")

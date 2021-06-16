@@ -1,12 +1,20 @@
+import os
 from os.path import isfile
-from sqlite3 import connect
+from dotenv import load_dotenv
+# from sqlite3 import connect
 from apscheduler.triggers.cron import CronTrigger
+import asyncpg
+import psycopg2
+from psycopg2 import extras
 
+
+load_dotenv(".env")
 DB_PATH = "./data/db/database.db"
 BUILD_PATH = "./data/db/build.sql"
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
-cxn = connect(DB_PATH, check_same_thread=False)
-cur = cxn.cursor()
+cxn = psycopg2.connect(database = "Freebot", host = "localhost", user = "postgres", password = POSTGRES_PASSWORD)
+cur = cxn.cursor(cursor_factory = extras.DictCursor)
 
 def with_commit(func):
     def inner(*args, **kwargs):
@@ -55,4 +63,4 @@ def multiexec(command, *values):
 
 def scriptexec(path):
     with open(path, "r", encoding = "utf-8") as script:
-        cur.executescript(script.read())
+        cur.execute(script.read())

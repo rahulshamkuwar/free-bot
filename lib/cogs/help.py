@@ -1,4 +1,4 @@
-from lib.db.db import field
+from lib.bot import Bot
 from typing import Optional
 
 from discord import Embed
@@ -53,7 +53,7 @@ class HelpMenu(ListPageSource):
 
 
 class Help(Cog):
-	def __init__(self, bot):
+	def __init__(self, bot: Bot):
 		self.bot = bot
 		self.bot.remove_command("help")
 
