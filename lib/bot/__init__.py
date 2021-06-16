@@ -12,7 +12,7 @@ from discord.ext.commands.context import Context
 from discord.ext.commands.errors import BadArgument, MissingPermissions, MissingRequiredArgument
 import asyncpg
 from os.path import isfile
-# from ..db import db
+
 
 load_dotenv(".env")
 PREFIX = '!'
@@ -47,9 +47,6 @@ class Bot(BotBase):
         self.cogs_ready = Ready()
         self.guild = None
         self.guild_ready = False
-        # self.scheduler = AsyncIOScheduler()
-        
-        # db.auto_save(self.scheduler)
         super().__init__(command_prefix = get_prefix, owner_ids = OWNER_IDS, intents = Intents.all())
     
     def setup(self):
@@ -59,12 +56,6 @@ class Bot(BotBase):
         print("setup complete")
     
     async def start_db(self):
-        # async with asyncpg.create_pool(database = "Freebot", host = "localhost", user = "postgres", password = POSTGRES_PASSWORD) as pool:
-        #     async with pool.acquire() as cxn:
-        #         self.cxn = cxn
-        #         if isfile(BUILD_PATH):
-        #             with open(BUILD_PATH, "r", encoding = "utf-8") as script:
-        #                 await self.cxn.execute(script.read())
         self.cxn = await asyncpg.create_pool(database = "Freebot", host = "localhost", user = "postgres", password = POSTGRES_PASSWORD)
         if isfile(BUILD_PATH):
             with open(BUILD_PATH, "r", encoding = "utf-8") as script:

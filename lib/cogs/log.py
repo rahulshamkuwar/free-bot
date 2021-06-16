@@ -4,7 +4,7 @@ from lib.bot import Bot
 from discord.embeds import Embed
 from discord.ext.commands import Cog, command, has_permissions, TextChannelConverter, MissingPermissions
 from discord import Embed
-# from ..db import db
+
 
 class Log(Cog):
     def __init__(self, bot: Bot):
@@ -24,12 +24,10 @@ class Log(Cog):
                 if channel is None:
                     await ctx.send("Please specify a channel to send logs to.")
                 else:
-                    await db.execute("UPDATE guilds SET Logs = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
-                    await db.execute("UPDATE guilds SET LogsChannelID = ($1) WHERE GuildID = ($2);", channel.id, ctx.guild.id)
+                    await db.execute("UPDATE guilds SET (Logs, LogsChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, channel.id, ctx.guild.id)
                     await ctx.send(f"Logs haven been enabled in {channel.mention}.")
             elif passed == "disabled":
-                await db.execute("UPDATE guilds SET Logs = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
-                await db.execute("UPDATE guilds SET LogsChannelID = ? WHERE GuildID = ($2);", 0, ctx.guild.id)
+                await db.execute("UPDATE guilds SET (Logs, LogsChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Logs have been disabled.")
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable logs.")
@@ -37,7 +35,7 @@ class Log(Cog):
     @logs.error
     async def logs_error(self, ctx, exception):
         if isinstance(exception, MissingPermissions):
-            await ctx.send("User does not have permissions to manage server..")
+            await ctx.send("User does not have permissions to manage server.")
     
     @Cog.listener()
     async def on_member_update(self, before, after):
@@ -45,7 +43,6 @@ class Log(Cog):
             query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
             send_message = query.get("logs")
             if send_message == "enabled":
-                # query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
                 log_channel = query.get("logschannelid")
                 if before.display_name != after.display_name:
                     embed = Embed(title = "Member Update", description = "Nickname Change", color = after.color, timestamp = datetime.utcnow())
@@ -68,7 +65,6 @@ class Log(Cog):
             query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
             send_message = query.get("logs")
             if send_message == "enabled":
-                # query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
                 log_channel = query.get("logschannelid")
                 if not after.author.bot:
                     if before.content != after.content:
@@ -87,7 +83,6 @@ class Log(Cog):
             query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", message.guild.id)
             send_message = query.get("logs")
             if send_message == "enabled":
-                # query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", message.guild.id)
                 log_channel = query.get("logschannelid")
                 if not message.author.bot:
                     embed = Embed(title = "Message Update", description = "Message Deleted", color = message.author.color, timestamp = datetime.utcnow())

@@ -1,7 +1,7 @@
 from re import S
 from discord.ext.commands import command, has_permissions, Cog, CheckFailure
 from lib.bot import Bot
-# from ..db import db
+
 
 class Misc(Cog):
     def __init__(self, bot: Bot):

@@ -12,7 +12,7 @@ import asyncio
 from discord.ext.commands.converter import UserConverter
 
 from discord.ext.commands.errors import BadArgument, MemberNotFound
-# from ..db import db
+
 class DurationConverter(Converter):
     async def convert(self, ctx, argument):
         amount = argument[:-1]
@@ -132,9 +132,6 @@ class Mod(Cog):
     @command(name = "addprofanity", help = "Add a list of words seperated by spaces to the profanity list.", aliases = ["addswears", "addcurses"])
     @has_permissions(manage_guild = True)
     async def add_profanity(self, ctx, *words):
-        # with open("./data/profanity.txt", "a", encoding = "utf-8") as f:
-        #     f.write("".join([f"{word}\n" for word in words]))
-        # profanity.load_censor_words_from_file("./data/profanity.txt")
         async with self.db.acquire() as db:
             await db.execute("UPDATE guilds SET ProfanityList = ProfanityList || $1 WHERE GuildId = $2", words, ctx.guild.id)
         await ctx.send("Words have been added to profanity list.")
@@ -149,13 +146,6 @@ class Mod(Cog):
     @command(name = "delprofanity", help = "Remove a list of words seperated by spaces from the profanity list.", aliases = ["removeprofanity", "delswears", "delcurses", "removeswears", "removecurses"])
     @has_permissions(manage_guild = True)
     async def remove_profanity(self, ctx, *words):
-        # with open("./data/profanity.txt", "r", encoding = "utf-8") as f:
-        #     stored = [word.strip() for word in f.readlines()]
-
-        # with open("./data/profanity.txt", "w", encoding = "utf-8") as f:
-        #     f.write("".join([f"{word}\n" for word in stored if word not in words]))
-        
-        # profanity.load_censor_words_from_file("./data/profanity.txt")
         async with self.db.acquire() as db:
             for word in list(words):
                 await db.execute("UPDATE guilds SET ProfanityList = array_remove(ProfanityList, $1) WHERE GuildId = $2", word, ctx.guild.id)
@@ -181,7 +171,6 @@ class Mod(Cog):
                     query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                     send_message = query.get("logs")
                     if send_message == "enabled":
-                        # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                         log_channel = query.get("logschannelid")
                         embed = Embed(title = "Member Banned", color = 0xDD2222, timestamp = datetime.utcnow())
                         fields = [("Member", member.mention, False),
@@ -202,7 +191,6 @@ class Mod(Cog):
                 query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                 send_message = query.get("logs")
                 if send_message == "enabled":
-                    # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                     log_channel = query.get("logschannelid")
                     embed = Embed(title = "Member Banned", color = 0xDD2222, timestamp = datetime.utcnow())
                     fields = [("Member", member.mention, False),
@@ -242,7 +230,6 @@ class Mod(Cog):
                 query = await db.fetchrow("SELECT Logs FROM, LogsChannelID guilds WHERE GuildID = ($1);", ctx.guild.id)
                 send_message = query.get("logs")
                 if send_message == "enabled":
-                    # log_query = await db0fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                     log_channel = query.get("logschannelid")
                     embed = Embed(title = "Member Temp Banned", color = 0xDD2222, timestamp = datetime.utcnow())
                     embed.set_thumbnail(url = member.default_avatar_url)
@@ -286,7 +273,6 @@ class Mod(Cog):
                 query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                 send_message = query.get("logs")
                 if send_message == "enabled":
-                    # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                     log_channel = query.get("logschannelid")
                     embed = Embed(title = "Member Kicked", color = 0xDD2222, timestamp = datetime.utcnow())
                     embed.set_thumbnail(url = member.default_avatar_url)
@@ -327,7 +313,6 @@ class Mod(Cog):
                 query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                 send_message = query.get("logs")
                 if send_message == "enabled":
-                    # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                     log_channel = query.get("logschannelid")
                     embed = Embed(title = "Member Unbanned", color = 0xDD2222, timestamp = datetime.utcnow())
                     embed.set_thumbnail(url = user.default_avatar_url)
@@ -392,10 +377,8 @@ class Mod(Cog):
                         amount, unit = duration
                         await member.add_roles(role, reason = reason)
                         await ctx.send(f"{member.mention} has been muted for {amount}{unit}.")
-                        # query = await db.fetchrow("SELECT Logs FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                         send_message = query.get("logs")
                         if send_message == "enabled":
-                            # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                             log_channel = query.get("logschannelid")
                             embed = Embed(title = "Member Muted", color = 0xDD2222, timestamp = datetime.utcnow())
                             embed.set_thumbnail(url = member.default_avatar_url)
@@ -409,7 +392,6 @@ class Mod(Cog):
                         if role in member.roles:
                             await member.remove_roles(role, reason = "Automatic unmute.")
                             if send_message == "enabled":
-                                # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                                 log_channel = query.get("logschannelid")
                                 embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
                                 embed.set_thumbnail(url = member.default_avatar_url)
@@ -460,10 +442,8 @@ class Mod(Cog):
                     if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
                         await member.remove_roles(role, reason = reason)
                         await ctx.send(f"{member.mention} is no longer muted.")
-                        # query = await db.fetchrow("SELECT Logs FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                         send_message = query.get("logs")
                         if send_message == "enabled":
-                            # log_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
                             log_channel = query.get("logschannelid")
                             embed = Embed(title = "Member Unmuted", color = 0xDD2222, timestamp = datetime.utcnow())
                             embed.set_thumbnail(url = member.default_avatar_url)

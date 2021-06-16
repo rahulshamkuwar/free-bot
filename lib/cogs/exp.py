@@ -7,7 +7,7 @@ from discord.channel import TextChannel
 from discord import Member
 from discord.ext.commands import command, has_permissions, Cog, MissingPermissions
 from discord.ext.commands.errors import BadArgument, MissingRequiredArgument
-# from ..db import db
+
 
 class Exp(Cog):
     def __init__(self, bot: Bot):
@@ -48,8 +48,7 @@ class Exp(Cog):
                 await db.execute("UPDATE guilds SET Experience = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
                 await ctx.send("Experience has been enabled.")
             elif passed == "disabled":
-                await db.execute("UPDATE guilds SET Experience = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
-                await db.execute("UPDATE guilds SET ExperienceID = ($1) WHERE GuildID = ($2);", 0, ctx.guild.id)
+                await db.execute("UPDATE guilds SET Experience, ExperienceID = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Experience has been disabled.")
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable experience levels.")
@@ -89,8 +88,6 @@ class Exp(Cog):
             query = await db.fetchrow("SELECT Experience, ExperienceID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
             exp = query.get('experience')
             if exp == "enabled":
-                # ch_query = await db.fetchrow("SELECT ExperienceID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
-                # channel = ch_query.get('experienceid')
                 channel = query.get('experienceid')
                 if channel == 0:
                     await ctx.send("There was no experience channel set so I couldn't remove it.")
@@ -127,16 +124,13 @@ class Exp(Cog):
         async with self.db.acquire() as db:
             query = await db.fetch(
                 """
-                SELECT COUNT(*) + 1
-                FROM (
-                SELECT UserID
-                    FROM exp
-                WHERE GuildID = $1
-                    AND UserID != $2
-                    AND XP != 0
-                    AND XP > (SELECT XP FROM exp WHERE UserID = $2)
-                ORDER BY XP DESC
-                ) ALIAS""", ctx.guild.id, member.id)
+                SELECT 
+                    UserID,
+                    GuildID,
+                    rank() OVER (PARTITION BY GuildID ORDER BY XP DESC) AS Rank
+                FROM exp
+                WHERE UserID = $1 AND GuildID = $2
+                """, member.id, ctx.guild.id)
             rank = list(query[0].values())[0]
             len_query = await db.fetch(
                 """
@@ -148,8 +142,6 @@ class Exp(Cog):
             )
             members = list(len_query[0].values())[0]
             await ctx.send(f"{member.display_name} is rank {rank} of {members}.")
-            # else:
-            #     await ctx.send(f"{member.display_name} does not have a rank.")
     @rank.error
     async def rank_error(self, ctx, exception):
         if isinstance(exception, BadArgument):

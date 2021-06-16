@@ -2,7 +2,7 @@ from datetime import datetime
 from lib.bot import Bot
 from discord.embeds import Embed
 from discord.ext.commands import command, has_permissions, Cog, TextChannelConverter, MissingPermissions
-# from ..db import db
+
 
 class Welcome(Cog):
     def __init__(self, bot: Bot):
@@ -22,12 +22,10 @@ class Welcome(Cog):
                 if channel is None:
                     await ctx.send("Please specify a channel to send welcome messages to.")
                 else:
-                    await db.execute("UPDATE guilds SET WelcomeMessage = ($1) WHERE GuildID = ($2);", passed, ctx.guild.i)
-                    await db.execute("UPDATE guilds SET WelcomeChannelID = ($1) WHERE GuildID = ($2);", channel.id, ctx.guild.i)
+                    await db.execute("UPDATE guilds SET WelcomeMessage, WelcomeChannelID = ($1, $2) WHERE GuildID = ($3);", passed, channel.id, ctx.guild.id)
                     await ctx.send(f"Welcome message enabled and welcome channel set to {channel.mention}.")
             elif passed == "disabled":
-                await db.execute("UPDATE guilds SET WelcomeMessage = ($1) WHERE GuildID = ($2);", passed, ctx.guild.i)
-                await db.execute("UPDATE guilds SET WelcomeChannelID = ($1) WHERE GuildID = ($2);", 0, ctx.guild.i)
+                await db.execute("UPDATE guilds SET WelcomeMessage, WelcomeChannelID = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Welcome message disabled and welcome channel removed.")
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable welcome messages.")
@@ -43,17 +41,13 @@ class Welcome(Cog):
             query = await db.fetchrow("SELECT WelcomeMessage, WelcomeChannelID, Experience, Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", member.guild.id)
             send_message = query.get("welcomemessage")
             if send_message == "enabled":
-                # channel_query = await db.fetchrow("SELECT WelcomeChannelID FROM guilds WHERE GuildID = ($1);", member.guild.id)
                 channel = query.get("welcomechannelid")
                 await self.bot.get_channel(channel).send(f"Welcome {member.mention}! Please remember to adhere to the rules and have fun!")
-            # exp_query = await db.fetchrow("SELECT Experience FROM guilds WHERE GuildID = ($1);", member.guild.id)
             exp = query.get('experience')
             if exp == "enabled":
                 await db.execute("INSERT INTO exp (UserID, GuildID) VALUES (($1), ($2))", member.id, member.guild.id)
-            # send_log_query = await db.fetchrow("SELECT Logs FROM guilds WHERE GuildID = ($1);", member.guild.id)
             send_log = query.get("logs")
             if send_log == "enabled":
-                # log_channel_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", member.guild.id)
                 log_channel = query.get("logschannelid")
                 embed = Embed(title = "Member Joined Server", color = 0xDD2222, timestamp = datetime.utcnow())
                 embed.set_thumbnail(url = member.default_avatar_url)
@@ -70,10 +64,8 @@ class Welcome(Cog):
             exp = query.get('experience')
             if exp == "enabled":
                 await db.execute("DELETE FROM exp WHERE UserID = ($1) AND GuildID = ($2)", member.id, member.guild.id)
-            # send_log_query = await db.fetchrow("SELECT Logs FROM guilds WHERE GuildID = ($1);", member.guild.id)
             send_log = query.get("logs")
             if send_log == "enabled":
-                # log_channel_query = await db.fetchrow("SELECT LogsChannelID FROM guilds WHERE GuildID = ($1);", member.guild.id)
                 log_channel = query.get("logschannelid")
                 embed = Embed(title = "Member Left Server", color = 0xDD2222, timestamp = datetime.utcnow())
                 embed.set_thumbnail(url = member.default_avatar_url)
