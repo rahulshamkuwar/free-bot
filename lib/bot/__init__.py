@@ -73,9 +73,9 @@ class Bot(BotBase):
             to_remove = []
 
             for stored in q_stored_members:
-                guild = self.get_guild(stored.get('guildid'))
+                this_guild = self.get_guild(stored.get('guildid'))
                 user_id = stored.get('userid')
-                if not guild.get_member(user_id):
+                if not this_guild.get_member(user_id):
                     to_remove.append((user_id, guild.id))
 
             if to_remove:
