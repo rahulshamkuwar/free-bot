@@ -16,10 +16,10 @@ class Stream(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("streaming")
     
-    @command(name = "stream", help = "Select if to receive stream notifications or not. Send enabled, followed by the role to listen to, then the role to ping. Or send disabled after the command.")
+    @command(name = "stream", help = "Select if to receive stream notifications or not. Send enabled, followed by the channel to ping in, the role to listen to, then the role to ping. Or send disabled after the command.")
     @has_permissions(manage_guild = True, manage_roles = True)
     @bot_has_permissions(manage_roles = True)
-    async def stream(self, ctx, *, passed: str, channel: TextChannelConverter = None, listen_role: RoleConverter = None, ping_role: RoleConverter = None):
+    async def stream(self, ctx, passed: str, channel: TextChannelConverter = None, listen_role: RoleConverter = None, ping_role: RoleConverter = None):
         async with self.db.acquire() as db:
             if passed == "enabled":
                 if channel is None:
@@ -35,7 +35,7 @@ class Stream(Cog):
                 await db.execute("UPDATE guilds SET (Stream, StreamChannelID, StreamListenRoleID, StreamPingRoleID) = ($1, $2, $3, $4) WHERE GuildID = ($5);", passed, 0, 0, 0, ctx.guild.id)
                 await ctx.send("stream notifications have been disabled.")
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable stream notifications.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable stream notifications.")
 
     @stream.error
     async def stream_error(self, ctx, exception):
