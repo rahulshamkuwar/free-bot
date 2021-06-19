@@ -1,6 +1,9 @@
 # Freebot
 Free, open source Discord chat bot
 
+## Invite
+You can invite the bot to your server using this [link](https://discord.com/api/oauth2/authorize?client_id=849325963489181697&permissions=8&scope=bot).
+
 ## Prefix
 The default prefix of the bot is `!` but it can be changed to anything using the `prefix` command. Do note that the prefix cannot be longer than 5 characters.
 
@@ -262,4 +265,4 @@ The bot can send welcome messages when a user joins the guild and can be accesse
 
 ## Lastly
 
-I still plan on working on this bot and improving it, once I think it's in good shape I'll probably add the invite link for the bot here. Also, this read me is a work in progress lol, it will be more fleshed out when I'm done. If you wish to help out feel free to open a fork.
+I'm going to continue improving this bot for a while so there will definitely be more updates. Also this read me is a work in progress lol, it will be more fleshed out when I'm done. If you wish to help out feel free to open a fork!
