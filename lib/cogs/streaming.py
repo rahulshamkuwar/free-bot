@@ -1,5 +1,5 @@
 from datetime import datetime
-from discord.activity import Streaming
+from discord.activity import CustomActivity, Spotify, Streaming
 from discord.embeds import Embed
 from discord.ext.commands.converter import RoleConverter, TextChannelConverter
 from discord.member import Member
@@ -43,27 +43,6 @@ class Stream(Cog):
             await ctx.send("User does not have permissions to manage server and roles.")
         elif isinstance(exception, BotMissingPermissions):
             await ctx.send("I do not have permissions to manage roles.")
-    
-    @Cog.listener()
-    async def on_member_update(self, before: Member, after: Member):
-        if not after.bot:
-            async with self.db.acquire() as db:
-                query = await db.fetchrow("SELECT Stream, StreamChannelID, StreamListenRoleID, StreamPingRoleID FROM guilds WHERE GuildID = ($1);", after.guild.id)
-                send_notif = query.get("stream")
-                if send_notif == "enabled":
-                    if after.activity is Streaming:
-                        listen_role_id = query.get("streamlistenroleid")
-                        if after.roles.__contains__(after.guild.get_role(listen_role_id)):
-                            channel_id = query.get("streamchannelid")
-                            ping_role = after.guild.get_role(query.get("streampingroleid"))
-                            stream = after.activity
-                            embed = Embed(title = f"{after.mention} is streaming!", color = after.color, timestamp = datetime.utcnow())
-                            embed.set_image(stream.large_image_url)
-                            fields = [("Stream name", stream.name, False), ("Game", stream.game, False)]
-                            for name, value, inline in fields:
-                                embed.add_field(name = name, value = value, inline = inline)
-                            await self.bot.get_channel(channel_id).send(f"Hey {ping_role.mention}, {after.mention} is streaming on {stream.platform}! Go watch them now at {stream.url}!")
-                            await self.bot.get_channel(channel_id).send(embed = embed)
 
 def setup(bot):
     bot.add_cog(Stream(bot))
