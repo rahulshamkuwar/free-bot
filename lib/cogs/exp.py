@@ -17,8 +17,7 @@ class Exp(Cog):
     async def process_xp(self, message):
         async with self.db.acquire() as db:
             query = await db.fetchrow("SELECT XP, UserLevel, XPLock FROM exp WHERE UserID = ($1) AND GuildID = ($2);", message.author.id, message.guild.id)
-            this_list = list(query.values())
-            xp, lvl, xplock = this_list[0], this_list[1], this_list[2]
+            xp, lvl, xplock = query.get('xp'), query.get('userlevel'), query.get('xplock')
             if datetime.utcnow() > datetime.fromisoformat(xplock):
                 await self.add_xp(message, xp, lvl)
     
@@ -48,7 +47,7 @@ class Exp(Cog):
                 await db.execute("UPDATE guilds SET Experience = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
                 await ctx.send("Experience has been enabled.")
             elif passed == "disabled":
-                await db.execute("UPDATE guilds SET Experience, ExperienceID = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
+                await db.execute("UPDATE guilds SET (Experience, ExperienceID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Experience has been disabled.")
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable experience levels.")

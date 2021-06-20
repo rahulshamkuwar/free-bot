@@ -22,10 +22,10 @@ class Welcome(Cog):
                 if channel is None:
                     await ctx.send("Please specify a channel to send welcome messages to.")
                 else:
-                    await db.execute("UPDATE guilds SET WelcomeMessage, WelcomeChannelID = ($1, $2) WHERE GuildID = ($3);", passed, channel.id, ctx.guild.id)
+                    await db.execute("UPDATE guilds SET (WelcomeMessage, WelcomeChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, channel.id, ctx.guild.id)
                     await ctx.send(f"Welcome message enabled and welcome channel set to {channel.mention}.")
             elif passed == "disabled":
-                await db.execute("UPDATE guilds SET WelcomeMessage, WelcomeChannelID = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
+                await db.execute("UPDATE guilds SET (WelcomeMessage, WelcomeChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Welcome message disabled and welcome channel removed.")
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable welcome messages.")

@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS guilds (
     GuildID BIGINT PRIMARY KEY,
     Prefix TEXT DEFAULT '!',
     WelcomeMessage TEXT DEFAULT 'disabled',
-    WelcomeChannelID INTEGER DEFAULT 0,
+    WelcomeChannelID BIGINT DEFAULT 0,
     Logs TEXT DEFAULT 'disabled',
     LogsChannelID BIGINT DEFAULT 0,
     Stream TEXT DEFAULT 'disabled',
