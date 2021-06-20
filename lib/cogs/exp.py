@@ -3,7 +3,7 @@ from os import XATTR_CREATE
 from random import randint
 from datetime import datetime, timedelta
 from typing import Optional
-from discord.channel import TextChannel
+from discord.channel import DMChannel, TextChannel
 from discord import Member
 from discord.ext.commands import command, has_permissions, Cog, MissingPermissions
 from discord.ext.commands.errors import BadArgument, MissingRequiredArgument
@@ -51,14 +51,14 @@ class Exp(Cog):
                 await db.execute("UPDATE guilds SET Experience, ExperienceID = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Experience has been disabled.")
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable experience levels.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable experience levels.")
     
     @exp.error
     async def exp_error(self, ctx, exception):
         if isinstance(exception, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
         elif isinstance(exception, MissingRequiredArgument):
-            await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable experience levels.")
+            await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable experience levels.")
     
     @command(name = "expchannel", help = "Select which channel to send experience level ups to. Defaults to channel with user's last sent message.", aliases = ["experiencechannel", "xpch"])
     @has_permissions(manage_guild = True)
@@ -151,7 +151,7 @@ class Exp(Cog):
 
     @Cog.listener()
     async def on_message(self, message):
-        if not message.author.bot and not message.content == "":
+        if not message.author.bot and not message.content == "" and not isinstance(message.channel, DMChannel):
             async with self.db.acquire() as db:
                 record = await db.fetchrow("SELECT Experience FROM guilds WHERE GuildID = ($1);", message.guild.id)
                 exp = record.get('experience')

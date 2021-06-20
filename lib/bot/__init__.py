@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+from discord.channel import DMChannel
 from dotenv import load_dotenv
 from asyncio.tasks import sleep
 from discord import Intents
@@ -25,9 +26,12 @@ BUILD_PATH = "./data/db/build.sql"
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 
 async def get_prefix(bot, message):
-    query = await bot.cxn.fetchrow("SELECT Prefix FROM guilds WHERE GuildID = ($1);", message.guild.id)
-    prefix = query.get("prefix")
-    return when_mentioned_or(prefix)(bot, message)
+    if not isinstance(message.channel, DMChannel):
+        query = await bot.cxn.fetchrow("SELECT Prefix FROM guilds WHERE GuildID = ($1);", message.guild.id)
+        prefix = query.get("prefix")
+        return when_mentioned_or(prefix)(bot, message)
+    else:
+        return when_mentioned_or("!")(bot, message)
 
 class Ready(object):
     def __init__(self):
@@ -69,6 +73,7 @@ class Bot(BotBase):
                 for member in guild.members:
                     if not member.bot:
                         await db.execute("INSERT INTO exp (UserID, GuildID, XPLock) VALUES ($1, $2, $3) ON CONFLICT (GuildID, UserID) DO NOTHING;", member.id, member.guild.id, datetime.utcnow().isoformat())
+                        await db.execute("INSERT INTO modmail (UserID) VALUES ($1) ON CONFLICT (UserID) DO NOTHING;", member.id)
             q_stored_members = await db.fetch("SELECT UserID, GuildID FROM exp;")
             to_remove = []
 
@@ -105,7 +110,7 @@ class Bot(BotBase):
     async def process_commands(self, message):
         ctx = await self.get_context(message = message, cls = Context)
 
-        if ctx.command is not None and ctx.guild is not None:
+        if ctx.command is not None:
             if self.ready:
                 await self.invoke(ctx = ctx)
             else:

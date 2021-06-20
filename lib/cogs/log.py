@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from discord.activity import Spotify, Streaming
+from discord.channel import DMChannel
 from discord.enums import ActivityType
 from discord.member import Member
 from lib.bot import Bot
@@ -34,7 +35,7 @@ class Log(Cog):
                 await db.execute("UPDATE guilds SET (Logs, LogsChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Logs have been disabled.")
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable logs.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable logs.")
     
     @logs.error
     async def logs_error(self, ctx, exception):
@@ -83,38 +84,40 @@ class Log(Cog):
     
     @Cog.listener()
     async def on_message_edit(self, before, after):
-        async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
-            send_message = query.get("logs")
-            if send_message == "enabled":
-                log_channel = query.get("logschannelid")
-                if not after.author.bot:
-                    if before.content != after.content:
-                        embed = Embed(title = "Message Update", description = "Message Edited", color = after.author.color, timestamp = datetime.utcnow())
-                        embed.set_thumbnail(url = after.author.avatar_url)
-                        embed.add_field(name = "User", value = after.author.mention, inline = False)
-                        embed.add_field(name = "Channel", value = after.channel, inline = False)
-                        fields = [("Before", before.content, False), ("After", after.content, False)]
-                        for name, value, inline in fields:
-                            embed.add_field(name = name, value = value, inline = inline)
-                        await self.bot.get_channel(log_channel).send(embed = embed)
+        if not isinstance(after.channel, DMChannel):
+            async with self.db.acquire() as db:
+                query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", after.guild.id)
+                send_message = query.get("logs")
+                if send_message == "enabled":
+                    log_channel = query.get("logschannelid")
+                    if not after.author.bot:
+                        if before.content != after.content:
+                            embed = Embed(title = "Message Update", description = "Message Edited", color = after.author.color, timestamp = datetime.utcnow())
+                            embed.set_thumbnail(url = after.author.avatar_url)
+                            embed.add_field(name = "User", value = after.author.mention, inline = False)
+                            embed.add_field(name = "Channel", value = after.channel, inline = False)
+                            fields = [("Before", before.content, False), ("After", after.content, False)]
+                            for name, value, inline in fields:
+                                embed.add_field(name = name, value = value, inline = inline)
+                            await self.bot.get_channel(log_channel).send(embed = embed)
     
     @Cog.listener()
     async def on_message_delete(self, message):
-        async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", message.guild.id)
-            send_message = query.get("logs")
-            if send_message == "enabled":
-                log_channel = query.get("logschannelid")
-                if not message.author.bot:
-                    embed = Embed(title = "Message Update", description = "Message Deleted", color = message.author.color, timestamp = datetime.utcnow())
-                    embed.set_thumbnail(url = message.author.avatar_url)
-                    embed.add_field(name = "User", value = message.author.mention, inline = False)
-                    embed.add_field(name = "Channel", value = message.channel, inline = False)
-                    fields = [("Content", message.content, False),]
-                    for name, value, inline in fields:
-                        embed.add_field(name = name, value = value, inline = inline)
-                    await self.bot.get_channel(log_channel).send(embed = embed)
+        if not isinstance(message.channel, DMChannel):
+            async with self.db.acquire() as db:
+                query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", message.guild.id)
+                send_message = query.get("logs")
+                if send_message == "enabled":
+                    log_channel = query.get("logschannelid")
+                    if not message.author.bot:
+                        embed = Embed(title = "Message Update", description = "Message Deleted", color = message.author.color, timestamp = datetime.utcnow())
+                        embed.set_thumbnail(url = message.author.avatar_url)
+                        embed.add_field(name = "User", value = message.author.mention, inline = False)
+                        embed.add_field(name = "Channel", value = message.channel, inline = False)
+                        fields = [("Content", message.content, False),]
+                        for name, value, inline in fields:
+                            embed.add_field(name = name, value = value, inline = inline)
+                        await self.bot.get_channel(log_channel).send(embed = embed)
 
 def setup(bot):
     bot.add_cog(Log(bot))

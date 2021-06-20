@@ -2,5 +2,5 @@
 
 from lib.bot import bot
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 bot.run(VERSION)

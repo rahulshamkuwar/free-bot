@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS guilds (
     Profanity TEXT DEFAULT 'enabled',
     Experience TEXT DEFAULT 'enabled',
     ExperienceID BIGINT DEFAULT 0,
-    ProfanityList TEXT[]
+    ProfanityList TEXT[],
+    Modmail TEXT DEFAULT 'disabled',
+    ModmailCategoryID BIGINT DEFAULT 0,
+    ModmailNotificationID BIGINT DEFAULT 0
     -- AutoLinks TEXT DEFAULT 'enabled',
     -- AutoLinksID BIGINT DEFAULT 0
 );
@@ -24,5 +27,16 @@ CREATE TABLE IF NOT EXISTS exp (
     XP INTEGER DEFAULT 0,
     UserLevel INTEGER DEFAULT 0,
     XPLock TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (GuildID, UserID)
+);
+
+CREATE TABLE IF NOT EXISTS modmail (
+    UserID BIGINT PRIMARY KEY,
+    CurrentTicketID BIGINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS blacklist (
+    GuildID BIGINT NOT NULL,
+    UserID BIGINT  NOT NULL,
     PRIMARY KEY (GuildID, UserID)
 );

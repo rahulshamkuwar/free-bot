@@ -5,7 +5,7 @@ from re import search
 from datetime import datetime
 from typing import Optional
 from discord import Role, Permissions, Embed, Member
-from discord.channel import TextChannel
+from discord.channel import DMChannel, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Cog, Converter, command, has_permissions, bot_has_permissions, MissingRequiredArgument, MemberConverter, BotMissingPermissions, MissingPermissions
 import asyncio
@@ -45,7 +45,7 @@ class Mod(Cog):
     
     @Cog.listener()
     async def on_message(self, message):
-        if not message.author.bot:
+        if not message.author.bot and not isinstance(message.channel, DMChannel):
             if not message.author.guild_permissions.is_superset(Permissions(manage_guild = True)):
                 async with self.db.acquire() as db: 
                     query = await db.fetchrow("SELECT Profanity, ProfanityList FROM guilds WHERE GuildID = ($1);", message.guild.id)
@@ -75,12 +75,12 @@ class Mod(Cog):
     #     elif passed == "disabled":
     #         db.execute("UPDATE guilds SET AutoLinks = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
     #     else:
-    #         await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
+    #         await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto deletion of external links.")
     
     # @auto_links.error
     # async def auto_links_error(self, ctx, error):
     #     if isinstance(error, MissingRequiredArgument):
-    #             await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto deletion of external links.")
+    #             await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto deletion of external links.")
     #     elif isinstance(error, MissingPermissions):
     #         await ctx.send("User does not have permissions to manage server.")
     
@@ -120,12 +120,12 @@ class Mod(Cog):
                 await db.execute("UPDATE guilds SET Profanity = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
                 await ctx.send("Auto profanity checks are disabled.")
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable auto profanity.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto profanity.")
     
     @auto_profanity.error
     async def auto_profanity_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-                await ctx.send("Please specify `enabled` or `disabled` after command to enable or disable welcome messages.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable welcome messages.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
 
