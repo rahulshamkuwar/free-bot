@@ -10,7 +10,8 @@ from discord.ext.menus import MenuPages, ListPageSource
 from discord.member import Member
 from discord.message import Message
 from lib.bot import Bot
-
+from discord import utils
+from discord import File
 class ModMailMenu(ListPageSource):
 	def __init__(self, ctx, data):
 		self.ctx = ctx
@@ -113,7 +114,7 @@ class Modmail(Cog):
                         return
                     else:
                         for this_channel in category.text_channels:
-                            if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name == ctx.message.author.name:
+                            if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
                                 ticket_exists = True
                         if not ticket_exists:
                             channel = await category.create_text_channel(name = ctx.author.name)
@@ -157,7 +158,7 @@ class Modmail(Cog):
                     category = self.bot.get_channel(query.get('modmailcategoryid'))
                     ticket_exists = False
                     for this_channel in category.text_channels:
-                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name == ctx.message.author.name:
+                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
                             ticket_exists = True
                     if ticket_exists:
                         await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2;", category.id, ctx.message.author.id)
@@ -208,9 +209,10 @@ class Modmail(Cog):
                         return
                     channel = None
                     for this_channel in category.text_channels:
-                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name == ctx.message.author.name:
+                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
                             channel = this_channel
-                    mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = channel.guild.get_member(ctx.message.author.id).color, timestamp = datetime.utcnow())
+                    member = category.guild.get_member(ctx.message.author.id)
+                    mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = member.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     mod_embed.add_field(name = "Message:", value = mail, inline = False)
                     await channel.send(embed = mod_embed)
@@ -280,6 +282,66 @@ class Modmail(Cog):
         if isinstance(exception, MissingRequiredArgument):
             await ctx.send("Please write a message after the command to send.")
 
+    @command(name = "edit", help = "Edit the last sent message in a modmail ticket.")
+    async def edit(self, ctx, *, mail: str):
+       if not ctx.message.author.bot:
+            if mail == None or mail.strip() == "":
+                await ctx.send("Please write the new message after the command to send.")
+                return
+            async with self.db.acquire() as db:
+                is_dm_channel = isinstance(ctx.message.channel, DMChannel)
+                if is_dm_channel:
+                    query = await db.fetchrow("Select CurrentTicketID from modmail WHERE UserID = $1", ctx.message.author.id)
+                    category_id = query.get('currentticketid')
+                    if category_id == 0:
+                        await ctx.send("Please specify which server to send this message to! Either use `newticket` or `resumeticket`.")
+                        return
+                    category = self.bot.get_channel(category_id)
+                    blacklist_query = await db.fetchrow("SELECT UserID from blacklist WHERE GuildID = $1", category.guild.id)
+                    if blacklist_query:
+                        await ctx.send("You have been blacklisted from sending messages to this server. For more details please contact the mods from this server.")
+                        return
+                    channel = None
+                    for this_channel in category.text_channels:
+                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
+                            channel = this_channel
+                    member = category.guild.get_member(ctx.message.author.id) 
+                    mod_message = utils.find(predicate =  lambda m: m.embeds[0].title == "New Message", seq = await channel.history(limit = 10).flatten())
+                    user_message = utils.find(predicate =  lambda m: m.embeds[0].title == "Message sent", seq = await channel.history(limit = 10).flatten())
+                    
+                    mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = member.color, timestamp = datetime.utcnow())
+                    mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    mod_embed.add_field(name = "Message:", value = mail, inline = False)
+                    await mod_message.edit(embed = mod_embed)
+
+                    user_embed = Embed(title = "Message sent", description = f"New message sent to {category.guild.name}.", color = 0x00FF00, timestamp = datetime.utcnow())
+                    user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    user_embed.add_field(name = "Message:", value = mail, inline = False)
+                    await user_message.edit(embed = user_embed)
+                else:
+                    query = await db.fetchrow("Select ModmailCategoryID from guilds WHERE GuildID = $1", ctx.message.guild.id)
+                    category = ctx.message.guild.get_channel(query.get('modmailcategoryid'))
+                    if not (ctx.message.channel in list(category.text_channels)):
+                        await ctx.send("This commmand can only be used in DMs with me or in a ticket channel in a server.")
+                        return
+                    blacklist_query = await db.fetchrow("SELECT UserID from blacklist WHERE GuildID = $1", category.guild.id)
+                    if blacklist_query:
+                        await ctx.send("This user has been blacklisted from sending messages to this server.")
+                        return
+                    user = self.bot.get_user(int(ctx.message.channel.topic))
+                    mod_message = utils.find(predicate =  lambda m: m.embeds[0].title == "Message sent", seq = await ctx.message.channel.history(limit = 10).flatten())
+                    user_message = utils.find(predicate =  lambda m: m.embeds[0].title == "New Message", seq = await ctx.message.channel.history(limit = 10).flatten())
+
+                    mod_embed = Embed(title = "Message sent", description = f"New message sent to {user.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
+                    mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    mod_embed.add_field(name = "Message:", value = mail, inline = False)
+                    await mod_message.edit(embed = mod_embed)
+
+                    user_embed = Embed(title = "New Message", description = f"A new message received from {category.guild.name}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
+                    user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    user_embed.add_field(name = "Message:", value = mail, inline = False)
+                    await user_message.edit(embed = user_embed)
+
     @command(name = "close", help = "Close a modmail ticket in the specific channel.")
     async def close(self, ctx):
         if not ctx.message.author.bot:
@@ -296,6 +358,17 @@ class Modmail(Cog):
                         return
                     user = self.bot.get_user(int(ctx.message.channel.topic))
                     await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2", 0, user.id)
+                    
+                    filename = f"./data/modmail_logs/{user.display_name}_{datetime.utcnow()}.txt"
+                    with open(filename, "w") as file:
+                        async for msg in ctx.channel.history(limit= 100):
+                            file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+
+                    mod_embed = Embed(title = "Ticket closed", description = f"Ticket with {user.mention} has been closed by {ctx.message.author.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
+                    mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    channel = ctx.message.guild.get_channel(query.get('modmailnotificationid'))
+                    await channel.send(embed = mod_embed, file = File(filename))
+
                     user_embed = Embed(title = "Ticket closed", description = f"This ticket has been closed by {ctx.message.author.mention} for {ctx.message.guild.name}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     await user.send(embed = user_embed)
@@ -319,6 +392,17 @@ class Modmail(Cog):
                         return
                     user = self.bot.get_user(int(ctx.message.channel.topic))
                     await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2", 0, user.id)
+                    
+                    filename = f"./data/modmail_logs/{user.display_name}_{datetime.utcnow()}.txt"
+                    with open(filename, "w") as file:
+                        async for msg in ctx.channel.history(limit= 100):
+                            file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+
+                    mod_embed = Embed(title = "Ticket closed", description = f"Ticket with {user.mention} has been closed by {ctx.message.author.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
+                    mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
+                    channel = ctx.message.guild.get_channel(query.get('modmailnotificationid'))
+                    await channel.send(embed = mod_embed, file = File(filename))
+                    
                     user_embed = Embed(title = "Ticket closed", description = f"The ticket for {ctx.message.guild.name} has been closed.", color = 0xFF0000, timestamp = datetime.utcnow())
                     user_embed.set_thumbnail(url = ctx.message.guild.icon_url)
                     await user.send(embed = user_embed)
