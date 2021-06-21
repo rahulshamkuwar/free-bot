@@ -188,7 +188,7 @@ class Modmail(Cog):
                 await ctx.send(embed = user_embed)
     
     @command(name = "send", help = "Use this command to send messages for modmail tickets.")
-    async def send(self, ctx, mail: str = None):
+    async def send(self, ctx, *, mail: str = None):
         if not ctx.message.author.bot:
             if mail == None or mail.strip() == "":
                 await ctx.send("Please write a message after the command to send.")
@@ -210,7 +210,7 @@ class Modmail(Cog):
                     for this_channel in category.text_channels:
                         if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name == ctx.message.author.name:
                             channel = this_channel
-                    mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
+                    mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = channel.guild.get_member(ctx.message.author.id).color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     mod_embed.add_field(name = "Message:", value = mail, inline = False)
                     await channel.send(embed = mod_embed)
@@ -246,7 +246,7 @@ class Modmail(Cog):
             await ctx.send("Please write a message after the command to send.")
 
     @command(name = "asend", help = "Use this command to send messages anonymously for modmail tickets.")
-    async def asend(self, ctx, mail: str = None):
+    async def asend(self, ctx, *, mail: str = None):
         if not ctx.message.author.bot:
             if isinstance(ctx.message.channel, DMChannel):
                 await ctx.send("This commmand can only be used in a ticket channel in a server.")

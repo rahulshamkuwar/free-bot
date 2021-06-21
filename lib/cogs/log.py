@@ -43,7 +43,7 @@ class Log(Cog):
             await ctx.send("User does not have permissions to manage server.")
     
     @Cog.listener()
-    async def on_member_update(self, before, after):
+    async def on_member_update(self, before: Member, after: Member):
         async with self.db.acquire() as db:
             query = await db.fetchrow("SELECT Logs, LogsChannelID, Stream, StreamChannelID, StreamListenRoleID, StreamPingRoleID FROM guilds WHERE GuildID = ($1);", after.guild.id)
             send_message = query.get("logs")
@@ -67,20 +67,24 @@ class Log(Cog):
                 send_notif = query.get("stream")
                 if send_notif == "enabled":
                     activity_list = list(after.activities)
+                    is_streaming = False
+                    stream = None
                     for activity in activity_list:
                         if isinstance(activity, Streaming):
-                            listen_role_id = query.get("streamlistenroleid")
-                            if after.roles.__contains__(after.guild.get_role(listen_role_id)):
-                                channel_id = query.get("streamchannelid")
-                                ping_role = after.guild.get_role(query.get("streampingroleid"))
-                                stream = after.activity
-                                embed = Embed(title = f"{after.mention} is streaming!", color = after.color, timestamp = datetime.utcnow())
-                                embed.set_image(stream.large_image_url)
-                                fields = [("Stream name", stream.name, False), ("Game", stream.game, False)]
-                                for name, value, inline in fields:
-                                    embed.add_field(name = name, value = value, inline = inline)
-                                await self.bot.get_channel(channel_id).send(f"Hey {ping_role.mention}, {after.mention} is streaming on {stream.platform}! Go watch them now at {stream.url}!")
-                                await self.bot.get_channel(channel_id).send(embed = embed)
+                            is_streaming = True
+                            stream = activity
+                    if is_streaming:
+                        listen_role_id = query.get("streamlistenroleid")
+                        if after.roles.__contains__(after.guild.get_role(listen_role_id)):
+                            channel_id = query.get("streamchannelid")
+                            ping_role = after.guild.get_role(query.get("streampingroleid"))
+                            embed = Embed(title = f"{after.display_name} is streaming!", color = after.color, timestamp = datetime.utcnow())
+                            # embed.set_image(url = stream.assets['large_image']) there is no way to get the image url rn for streaming :()
+                            fields = [("Stream name", stream.name, False), ("Game", stream.game, False)]
+                            for name, value, inline in fields:
+                                embed.add_field(name = name, value = value, inline = inline)
+                            await self.bot.get_channel(channel_id).send(f"Hey {ping_role.mention}, {after.mention} is streaming on {stream.platform}! Go watch them now at {stream.url} !")
+                            await self.bot.get_channel(channel_id).send(embed = embed)
     
     @Cog.listener()
     async def on_message_edit(self, before, after):
