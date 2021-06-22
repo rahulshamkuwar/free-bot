@@ -13,6 +13,10 @@ The default prefix of the bot is `!` but it can be changed to anything using the
 
 ## Moderation
 The bot currently has basic moderation tools like `ban`, `tempban`, `unban`, `kick`, `mute`, `unmute`, `muted-role`, `autoprofanity`, `addprofanity`, `delprofanity` and `clear`.
+
+### `mod`
+Select if to have moderation commands or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.
+
 ### `ban`
 `ban` requires a user and a reason to complete properly. Also requires permissions to ban from the mod and the bot. 
 
@@ -262,6 +266,53 @@ The bot can send welcome messages when a user joins the guild and can be accesse
     <img src = "images/welcomeset.png">
 </figure>
 
+## Modmail
+The bot also has a modmail feature, I will add pictures soon enough showing how they look, that allows users to open tickets with the moderators of a server.
+
+### `modmail`
+Select if to have modmail or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.
+
+### `modmailservers`
+Get the server ID to send your modmail ticket to by DM-ing the bot.
+
+### `newticket`
+Start a new modmail ticket by DM-ing the bot and sending the server ID you want to send a message to.
+
+### `resumeticket`
+Resume an old modmail ticket by DM-ing the bot and sending the server ID you want to send a message to.
+
+### `pauseticket`
+Pause the current modmail ticket.
+
+### `send`
+Use this command to send messages for modmail tickets.
+
+### `asend`
+Use this command to send messages anonymously for modmail tickets.
+
+### `edit`
+Edit the last sent message in a modmail ticket. I will only check the last 10 messages sent by anyone in the channel.
+
+### `delete`
+Delete the last sent message in a modmail ticket. I will only check the last 10 messages sent by anyone in the channel.
+
+### `close`
+Close a modmail ticket in the specific channel.
+
+### `aclose`
+Anonymously close a modmail ticket in the specific channel.
+
+### `blacklist`
+Add a user to a blacklist to block them from using modmail tickets.
+
+### `whitelist`
+Remove a user from the blacklist.
+
+## Streaming Notifications
+The bot can send notifications for Twitch and Youtube.
+
+### `stream`
+Select if to receive stream notifications or not. Send enabled, followed by the channel to ping in, the role to listen to, then the role to ping. Or send disabled after the command. To view a list of commands, send `help` after the command.
 
 ## Lastly
 
