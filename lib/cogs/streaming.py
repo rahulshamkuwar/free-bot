@@ -14,7 +14,7 @@ class Stream(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("streaming")
     
-    @command(name = "stream", help = "Select if to receive stream notifications or not. Send enabled, followed by the channel to ping in, the role to listen to, then the role to ping. Or send disabled after the command.")
+    @command(name = "stream", help = "Select if to receive stream notifications or not. Send enabled, followed by the channel to ping in, the role to listen to, then the role to ping. Or send disabled after the command. To view a list of commands, send `help` after the command.")
     @has_permissions(manage_guild = True, manage_roles = True)
     @bot_has_permissions(manage_roles = True)
     async def stream(self, ctx, passed: str, channel: TextChannelConverter = None, listen_role: RoleConverter = None, ping_role: RoleConverter = None):

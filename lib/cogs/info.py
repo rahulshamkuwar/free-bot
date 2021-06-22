@@ -14,7 +14,7 @@ class Info(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
-    @command(name = "userinfo", aliases = ["ui", "memberinfo", "mi"], help = "Get information about a specified user.")
+    @command(name = "userinfo", aliases = ["ui", "memberinfo", "mi"], help = "Get information about a specified user. To view a list of commands, send `help` after the command.")
     async def user_info(self, ctx, target: Optional[Member], passed: Optional[str]):
         if passed == "help":
             menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
@@ -37,7 +37,7 @@ class Info(Cog):
             embed.add_field(name = name, value = value, inline = inline)
         await ctx.send(embed = embed)
 
-    @command(name = "serverinfo", aliases = ["si", "guildinfo", "gi"], help = "Get information about a specified server.")
+    @command(name = "serverinfo", aliases = ["si", "guildinfo", "gi"], help = "Get information about a specified server. To view a list of commands, send `help` after the command.")
     async def server_info(self, ctx, passed: Optional[str]):
         if passed == "help":
             menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),

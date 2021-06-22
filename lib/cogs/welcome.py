@@ -47,14 +47,17 @@ class Welcome(Cog):
     @Cog.listener()
     async def on_member_join(self, member):
         async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT WelcomeMessage, WelcomeChannelID, Experience, Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", member.guild.id)
+            query = await db.fetchrow("SELECT WelcomeMessage, WelcomeChannelID, Experience, Logs, LogsChannelID, Modmail FROM guilds WHERE GuildID = ($1);", member.guild.id)
             send_message = query.get("welcomemessage")
             if send_message == "enabled":
                 channel = query.get("welcomechannelid")
                 await self.bot.get_channel(channel).send(f"Welcome {member.mention}! Please remember to adhere to the rules and have fun!")
             exp = query.get('experience')
             if exp == "enabled":
-                await db.execute("INSERT INTO exp (UserID, GuildID) VALUES (($1), ($2))", member.id, member.guild.id)
+                await db.execute("INSERT INTO exp (UserID, GuildID, XPLock) VALUES ($1, $2, $3) ON CONFLICT (GuildID, UserID) DO NOTHING;", member.id, member.guild.id, datetime.utcnow().isoformat())
+            modmail = query.get('modmail')
+            if modmail == "enabled":
+                await db.execute("INSERT INTO modmail (UserID) VALUES ($1) ON CONFLICT (UserID) DO NOTHING;", member.id)
             send_log = query.get("logs")
             if send_log == "enabled":
                 log_channel = query.get("logschannelid")

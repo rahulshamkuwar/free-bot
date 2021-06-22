@@ -75,8 +75,13 @@ class Bot(BotBase):
                 await db.execute("INSERT INTO guilds (GuildID) VALUES ($1) ON CONFLICT (GuildID) DO NOTHING;", guild.id)
                 for member in guild.members:
                     if not member.bot:
-                        await db.execute("INSERT INTO exp (UserID, GuildID, XPLock) VALUES ($1, $2, $3) ON CONFLICT (GuildID, UserID) DO NOTHING;", member.id, member.guild.id, datetime.utcnow().isoformat())
-                        await db.execute("INSERT INTO modmail (UserID) VALUES ($1) ON CONFLICT (UserID) DO NOTHING;", member.id)
+                        query = await db.fetchrow("SELECT (Experience, Modmail) FROM guilds WHERE GuildID = ($1);", member.guild.id)
+                        exp = query.get('experience')
+                        if exp == "enabled":
+                            await db.execute("INSERT INTO exp (UserID, GuildID, XPLock) VALUES ($1, $2, $3) ON CONFLICT (GuildID, UserID) DO NOTHING;", member.id, member.guild.id, datetime.utcnow().isoformat())
+                        modmail = query.get('modmail')
+                        if modmail == "enabled":
+                            await db.execute("INSERT INTO modmail (UserID) VALUES ($1) ON CONFLICT (UserID) DO NOTHING;", member.id)
             q_stored_members = await db.fetch("SELECT UserID, GuildID FROM exp;")
             to_remove = []
 

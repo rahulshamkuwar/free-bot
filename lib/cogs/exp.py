@@ -138,7 +138,7 @@ class Exp(Cog):
                 FROM exp
                 WHERE UserID = $1 AND GuildID = $2
                 """, member.id, ctx.guild.id)
-            rank = list(query[0].values())[0]
+            rank = query[0].get('rank')
             len_query = await db.fetch(
                 """
                 SELECT COUNT(*)
@@ -147,7 +147,7 @@ class Exp(Cog):
                     AND XP != 0
                 """, ctx.guild.id
             )
-            members = list(len_query[0].values())[0]
+            members = len_query[0].get('count')
             await ctx.send(f"{member.display_name} is rank {rank} of {members}.")
     @rank.error
     async def rank_error(self, ctx, exception):
