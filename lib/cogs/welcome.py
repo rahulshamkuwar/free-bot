@@ -1,4 +1,7 @@
 from datetime import datetime
+from lib.cogs.help import HelpMenu
+
+from discord.ext.menus import MenuPages
 from lib.bot import Bot
 from discord.embeds import Embed
 from discord.ext.commands import command, has_permissions, Cog, TextChannelConverter, MissingPermissions
@@ -14,7 +17,7 @@ class Welcome(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("welcome")
     
-    @command(name = "welcome-message", help = "Select if to have a welcome message or not. Send enabled or disabled after the command to specify which one.")
+    @command(name = "welcomemessage", help = "Select if to have a welcome message or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
     @has_permissions(manage_guild = True)
     async def welcome_message(self, ctx, passed: str, channel: TextChannelConverter = None):
         async with self.db.acquire() as db:
@@ -27,6 +30,12 @@ class Welcome(Cog):
             elif passed == "disabled":
                 await db.execute("UPDATE guilds SET (WelcomeMessage, WelcomeChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Welcome message disabled and welcome channel removed.")
+            elif passed == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable welcome messages.")
     

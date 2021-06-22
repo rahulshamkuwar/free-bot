@@ -1,4 +1,7 @@
 from enum import auto
+from lib.cogs.help import HelpMenu
+
+from discord.ext.menus import MenuPages
 from lib.bot import Bot
 from better_profanity import profanity
 from re import search
@@ -67,7 +70,7 @@ class Mod(Cog):
     
     #Commands
 
-    # @command(name = "autolinks", help = "Select if to automatically delete external links or not. Send enabled or disabled after the command to specify which one.")
+    # @command(name = "autolinks", help = "Select if to automatically delete external links or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
     # @has_permissions(manage_guild = True)
     # async def auto_links(self, ctx, passed: str):
     #     if passed == "enabled":
@@ -109,7 +112,33 @@ class Mod(Cog):
     #     elif auto_links == "disabled":
     #         await ctx.send("Please enable `autolinks` first before using this command.")
 
-    @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send enabled or disabled after the command to specify which one.")
+    @command(name = "mod", help = "Select if to have moderation commands or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
+    @has_permissions(manage_guild = True)
+    async def moderation(self, ctx, passed: str):
+        async with self.db.acquire() as db:
+            if passed == "enabled":
+                    await db.execute("UPDATE guilds SET Moderation = $1 WHERE GuildID = $2;", passed, ctx.guild.id)
+                    await ctx.send("Moderation commands haven been enabled.")
+            elif passed == "disabled":
+                await db.execute("UPDATE guilds SET Moderation = $1 WHERE GuildID = $2;", passed, ctx.guild.id)
+                await ctx.send("Logs have been disabled.")
+            elif passed == "help":
+                    menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+                                delete_message_after=True,
+                                clear_reactions_after = True,
+                                timeout=60.0)
+                    await menu.start(ctx)
+            else:
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable moderation commands. Or send `mod help` to view a list of commands.")
+    
+    @moderation.error
+    async def moderation_error(self, ctx, error):
+        if isinstance(error, MissingRequiredArgument):
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable moderation commands. Or send `mod help` to view a list of commands.")
+        elif isinstance(error, MissingPermissions):
+            await ctx.send("User does not have permissions to manage server.")
+    
+    @command(name = "autoprofanity", help = "Select if to have auto profanity or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
     @has_permissions(manage_guild = True)
     async def auto_profanity(self, ctx, passed: str):
         async with self.db.acquire() as db:
@@ -120,12 +149,12 @@ class Mod(Cog):
                 await db.execute("UPDATE guilds SET Profanity = ($1) WHERE GuildID = ($2);", passed, ctx.guild.id)
                 await ctx.send("Auto profanity checks are disabled.")
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto profanity.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto profanity. Or send `autoprofanity help` to view a list of commands.")
     
     @auto_profanity.error
     async def auto_profanity_error(self, ctx, error):
         if isinstance(error, MissingRequiredArgument):
-                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable welcome messages.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable auto profanity. Or send `autoprofanity help` to view a list of commands.")
         elif isinstance(error, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
 
@@ -162,13 +191,17 @@ class Mod(Cog):
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
     async def ban(self, ctx, member: UserConverter, *, reason: str):
-        if member in ctx.guild.members:
-            member = MemberConverter(member.id)
-            if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
-                await ctx.guild.ban(user = member, reason = reason)
-                await ctx.send(f"{member.mention} has been banned.")
-                async with self.db.acquire() as db:
-                    query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+        async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT (Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
+            if member in ctx.guild.members:
+                member = MemberConverter(member.id)
+                if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
+                    await ctx.guild.ban(user = member, reason = reason)
+                    await ctx.send(f"{member.mention} has been banned.")
                     send_message = query.get("logs")
                     if send_message == "enabled":
                         log_channel = query.get("logschannelid")
@@ -180,15 +213,13 @@ class Mod(Cog):
                             embed.add_field(name = name, value = value, inline = inline)
                         embed.set_thumbnail(url = member.default_avatar_url)
                         await self.bot.get_channel(log_channel).send(embed = embed)
-            elif member.guild_permissions.administrator:
-                await ctx.send(f"Cannot ban {member.mention} since they are an admin.")
+                elif member.guild_permissions.administrator:
+                    await ctx.send(f"Cannot ban {member.mention} since they are an admin.")
+                else:
+                    await ctx.send(f"Cannot ban {member.mention} since their role is higher than mine.")
             else:
-                await ctx.send(f"Cannot ban {member.mention} since their role is higher than mine.")
-        else:
-            await ctx.guild.ban(user = member, reason = reason)
-            await ctx.send(f"{member.mention} has been banned.")
-            async with self.db.acquire() as db:
-                query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+                await ctx.guild.ban(user = member, reason = reason)
+                await ctx.send(f"{member.mention} has been banned.")
                 send_message = query.get("logs")
                 if send_message == "enabled":
                     log_channel = query.get("logschannelid")
@@ -219,15 +250,19 @@ class Mod(Cog):
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
     async def tempban(self, ctx, member: MemberConverter, duration: DurationConverter, *, reason: str):
-        if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
-            multiplier = {"s" : 1, "m" : 60, "h" : 3600, "d" : 86400, "w" : 604800, "mth" : 2.628e+6, "y" : 3.154e+7}
-            amount, unit = duration
-            await ctx.guild.ban(user = member, reason = reason)
-            await ctx.send(f"{member.mention} has been banned for {amount}{unit}.")
-            await asyncio.sleep(amount * multiplier[unit])
-            await ctx.guild.unban(member)
-            async with self.db.acquire() as db:
-                query = await db.fetchrow("SELECT Logs FROM, LogsChannelID guilds WHERE GuildID = ($1);", ctx.guild.id)
+        async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT (Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
+            if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
+                multiplier = {"s" : 1, "m" : 60, "h" : 3600, "d" : 86400, "w" : 604800, "mth" : 2.628e+6, "y" : 3.154e+7}
+                amount, unit = duration
+                await ctx.guild.ban(user = member, reason = reason)
+                await ctx.send(f"{member.mention} has been banned for {amount}{unit}.")
+                await asyncio.sleep(amount * multiplier[unit])
+                await ctx.guild.unban(member)
                 send_message = query.get("logs")
                 if send_message == "enabled":
                     log_channel = query.get("logschannelid")
@@ -240,10 +275,10 @@ class Mod(Cog):
                     for name, value, inline in fields:
                         embed.add_field(name = name, value = value, inline = inline)
                     await self.bot.get_channel(log_channel).send(embed = embed)
-        elif member.guild_permissions.administrator:
-            await ctx.send(f"Cannot temp ban {member.mention} since they are an admin.")
-        else:
-            await ctx.send(f"Cannot temp ban {member.mention} since their role is higher than mine.")
+            elif member.guild_permissions.administrator:
+                await ctx.send(f"Cannot temp ban {member.mention} since they are an admin.")
+            else:
+                await ctx.send(f"Cannot temp ban {member.mention} since their role is higher than mine.")
 
     
     @tempban.error
@@ -266,11 +301,15 @@ class Mod(Cog):
     @bot_has_permissions(kick_members = True)
     @has_permissions(kick_members = True)
     async def kick(self, ctx, member: MemberConverter, *, reason: str):
-        if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
-            await member.kick(reason = reason)
-            await ctx.send(f"{member.mention} has been kicked.")
-            async with self.db.acquire() as db:
-                query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+        async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT (Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
+            if (ctx.guild.me.top_role.position > member.top_role.position and not member.guild_permissions.administrator):
+                await member.kick(reason = reason)
+                await ctx.send(f"{member.mention} has been kicked.")
                 send_message = query.get("logs")
                 if send_message == "enabled":
                     log_channel = query.get("logschannelid")
@@ -282,10 +321,10 @@ class Mod(Cog):
                     for name, value, inline in fields:
                         embed.add_field(name = name, value = value, inline = inline)
                     await self.bot.get_channel(log_channel).send(embed = embed)
-        elif member.guild_permissions.administrator:
-            await ctx.send(f"Cannot kick {member.mention} since they are an admin.")
-        else:
-            await ctx.send(f"Cannot kick {member.mention} since their role is higher than mine.")
+            elif member.guild_permissions.administrator:
+                await ctx.send(f"Cannot kick {member.mention} since they are an admin.")
+            else:
+                await ctx.send(f"Cannot kick {member.mention} since their role is higher than mine.")
 
     @kick.error
     async def kick_error(self, ctx, error):
@@ -305,12 +344,16 @@ class Mod(Cog):
     @bot_has_permissions(ban_members = True)
     @has_permissions(ban_members = True)
     async def unban(self, ctx, user: UserConverter, *, reason: str):
-        banned_user = await ctx.guild.fetch_ban(user = user)
-        if banned_user:
-            await ctx.guild.unban(user, reason = reason)
-            await ctx.send(f"{user} has been unbanned.")
-            async with self.db.acquire() as db:
-                query = await db.fetchrow("SELECT Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+        async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT (Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
+            banned_user = await ctx.guild.fetch_ban(user = user)
+            if banned_user:
+                await ctx.guild.unban(user, reason = reason)
+                await ctx.send(f"{user} has been unbanned.")
                 send_message = query.get("logs")
                 if send_message == "enabled":
                     log_channel = query.get("logschannelid")
@@ -322,8 +365,8 @@ class Mod(Cog):
                     for name, value, inline in fields:
                         embed.add_field(name = name, value = value, inline = inline)
                     await self.bot.get_channel(log_channel).send(embed = embed)
-        else:
-            await ctx.send(f"{user} is not banned from guild.")
+            else:
+                await ctx.send(f"{user} is not banned from guild.")
     
     @unban.error
     async def unban_error(self, ctx, error):
@@ -339,11 +382,16 @@ class Mod(Cog):
         elif isinstance(error, BotMissingPermissions):
             await ctx.send("I do not have permissions to ban.")
     
-    @command(name = "muted-role", help = "Define a muted role. If no role is provided, a new one will be created.")
+    @command(name = "mutedrole", help = "Define a muted role. If no role is provided, a new one will be created.")
     @bot_has_permissions(manage_roles = True)
     @has_permissions(manage_messages = True, manage_roles = True)
     async def muted_role(self, ctx, role: Optional[Role] = None):
         async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT  (Logs, LogsChannelID, Moderation)  FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
             if role == None:
                 permissions = Permissions(add_reactions = False, connect = False, send_messages = False, send_tts_messages = False, use_slash_commands = False)
                 new_muted_role = await ctx.guild.create_role(name = "Muted", permissions = permissions, color = 0x251616)
@@ -365,7 +413,11 @@ class Mod(Cog):
     @has_permissions(manage_messages = True)
     async def mute(self, ctx, member: MemberConverter, duration: DurationConverter, *, reason: str ):
         async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT MutedRoleID, Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            query = await db.fetchrow("SELECT (MutedRoleID, Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
             muted_role_id = query.get("mutedroleid")
             if muted_role_id == 0:
                 await ctx.send("Please define a muted role. This can be done with the `muted-role` command.")
@@ -432,7 +484,11 @@ class Mod(Cog):
     @has_permissions(manage_messages = True)
     async def unmute(self, ctx, member: MemberConverter, *, reason: str ):
         async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT MutedRoleID, Logs, LogsChannelID FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            query = await db.fetchrow("SELECT (MutedRoleID, Logs, LogsChannelID, Moderation) FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
             muted_role_id = query.get("mutedroleid")
             if muted_role_id == 0:
                 await ctx.send("Please define a muted role. This can be done with the `muted-role` command.")
@@ -478,10 +534,16 @@ class Mod(Cog):
     @bot_has_permissions(manage_messages = True)
     @has_permissions(manage_messages = True)
     async def clear_messages(self, ctx, limit: int):
-        with ctx.channel.typing():
-            await ctx.message.delete()
-            deleted = await ctx.channel.purge(limit = limit)
-            await ctx.send(f"Deleted {len(deleted):,} messages.", delete_after = 5)
+        async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT Moderation FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            mod = query.get('moderation')
+            if mod == "disabled":
+                await ctx.send("Moderation commands are disabled on this server.")
+                return
+            with ctx.channel.typing():
+                await ctx.message.delete()
+                deleted = await ctx.channel.purge(limit = limit)
+                await ctx.send(f"Deleted {len(deleted):,} messages.", delete_after = 5)
     
     @clear_messages.error
     async def clear_messages_error(self, ctx, error):

@@ -1,8 +1,6 @@
-from datetime import datetime
-from discord.activity import CustomActivity, Spotify, Streaming
-from discord.embeds import Embed
+from lib.cogs.help import HelpMenu
 from discord.ext.commands.converter import RoleConverter, TextChannelConverter
-from discord.member import Member
+from discord.ext.menus import MenuPages
 from lib.bot import Bot
 from discord.ext.commands import Cog, command, has_permissions, MissingPermissions, bot_has_permissions, BotMissingPermissions
 
@@ -34,6 +32,12 @@ class Stream(Cog):
             elif passed == "disabled":
                 await db.execute("UPDATE guilds SET (Stream, StreamChannelID, StreamListenRoleID, StreamPingRoleID) = ($1, $2, $3, $4) WHERE GuildID = ($5);", passed, 0, 0, 0, ctx.guild.id)
                 await ctx.send("stream notifications have been disabled.")
+            elif passed == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable stream notifications.")
 

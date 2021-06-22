@@ -1,8 +1,10 @@
 from datetime import datetime
+from lib.cogs.help import HelpMenu
 
 from discord.activity import Spotify, Streaming
 from discord.channel import DMChannel
 from discord.enums import ActivityType
+from discord.ext.menus import MenuPages
 from discord.member import Member
 from lib.bot import Bot
 
@@ -21,7 +23,7 @@ class Log(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("log")
 
-    @command(name = "logs", help = "Select if to have logs or not. Send enabled or disabled after the command to specify which one.")
+    @command(name = "logs", help = "Select if to have logs or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
     @has_permissions(manage_guild = True)
     async def logs(self, ctx, passed: str, channel: TextChannelConverter = None):
         async with self.db.acquire() as db:
@@ -34,6 +36,12 @@ class Log(Cog):
             elif passed == "disabled":
                 await db.execute("UPDATE guilds SET (Logs, LogsChannelID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Logs have been disabled.")
+            elif passed == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable logs.")
     

@@ -1,6 +1,5 @@
 from lib.bot import Bot
 from typing import Optional
-
 from discord import Embed
 from discord.utils import get
 from discord.ext.menus import MenuPages, ListPageSource
@@ -64,11 +63,12 @@ class Help(Cog):
 		embed.add_field(name="Command description", value=command.help)
 		await ctx.send(embed=embed)
 
-	@command(name="help")
+	@command(name="help", help = "Shows the help dialog. If no specific command is give, it will show a pagination of all commands.")
 	async def show_help(self, ctx, cmd: Optional[str]):
-		"""Shows this message."""
 		if cmd is None:
-			menu = MenuPages(source=HelpMenu(ctx, list(self.bot.commands)),
+			u_commands = list(self.bot.commands)
+			s_commands = sorted(u_commands, key = lambda x: x.cog_name.lower())
+			menu = MenuPages(source=HelpMenu(ctx, s_commands),
 							 delete_message_after=True,
                              clear_reactions_after = True,
 							 timeout=60.0)

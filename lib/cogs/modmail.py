@@ -1,4 +1,6 @@
 from datetime import datetime
+import os
+from lib.cogs.help import HelpMenu
 from typing import Optional
 from discord.channel import DMChannel
 from discord.embeds import Embed
@@ -50,9 +52,18 @@ class Modmail(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("modmail")
     
-    @command(name = "modmail", help = "Select if to have modmail or not. Send enabled or disabled after the command to specify which one.")
+    def embed_check(self, message: Message, title: str):
+        if message.embeds:
+            if message.embeds[0].title == title:
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    @command(name = "modmail", help = "Select if to have modmail or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.")
     @has_permissions(manage_guild = True, manage_channels = True)
-    @bot_has_permissions(manage_channels = True)
+    @bot_has_permissions(manage_channels = True, manage_messages = True)
     async def modmail(self, ctx, passed: str, category: Optional[CategoryChannelConverter] = None, channel: Optional[TextChannelConverter] = None):
         async with self.db.acquire() as db:
             if passed == "enabled":
@@ -66,15 +77,21 @@ class Modmail(Cog):
             elif passed == "disabled":
                 await db.execute("UPDATE guilds SET (Modmail, ModmailCategoryID, ModmailNotificationID) = ($1, $2, $3) WHERE GuildID = ($4);", passed, 0, 0, ctx.guild.id)
                 await ctx.send("Modmail has been disabled.")
+            elif passed == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
             else:
-                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable modmail.")
+                await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable modmail. Or send `modmail help` to see a list of commands you can use.")
     
     @modmail.error
     async def modmail_error(self, ctx, exception):
         if isinstance(exception, MissingPermissions):
             await ctx.send("User does not have permissions to manage server.")
         elif isinstance(exception, BotMissingPermissions):
-            await ctx.send("I do not have permission to manage channels.")
+            await ctx.send("I do not have permission to manage channels or manage messages.")
         elif isinstance(exception, MissingRequiredArgument):
             await ctx.send("Please send `enabled` followed by the category ID and then the notification channel ID. Or send `disabled` to disable modmail.")
     
@@ -110,7 +127,7 @@ class Modmail(Cog):
                         await notif_channel.send(embed = mod_embed)
 
                         user_embed = Embed(title = "Max Number of Tickets Reached", description = f"This server has reached 50 tickets, which is the maximum number of tickets allowed. Please contact the mods in this server.", color = 0xFF0000, timestamp = datetime.utcnow())
-                        await ctx.message.channel.send(embed = user_embed)
+                        await ctx.send(embed = user_embed)
                         return
                     else:
                         for this_channel in category.text_channels:
@@ -126,7 +143,7 @@ class Modmail(Cog):
 
                             user_embed = Embed(title = "New Ticket Created!", description = f"A new ticket has been created with {guild.name}! Please use the `send` command to send any messages for this ticket. To pause this ticket use `pauseticket`.", color = 0x00FF00, timestamp = datetime.utcnow())
                             user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
-                            await ctx.message.channel.send(embed = user_embed)
+                            await ctx.send(embed = user_embed)
                             if len(category.text_channels) == 50:
                                 notif_channel = await TextChannelConverter.convert(ctx = ctx, argument = query.get('modmailnotificationid'))
                                 mod_embed = Embed(title = "Max Number of Tickets Reached", description = f"You have reached 50 tickets, which is the maximum number of tickets allowed. Please consider closing some tickets so that other users may create a new ticket.", color = 0xFF0000, timestamp = datetime.utcnow())
@@ -140,7 +157,9 @@ class Modmail(Cog):
     async def modmail_new_ticket_error(self, ctx, exception):
         if isinstance(exception, MissingRequiredArgument):
                 await ctx.send("Please specify the server ID you want to send a message to. If you do not know the server ID, use `modmailservers` to find a list of servers and their IDs.")
-    
+        elif isinstance(exception, BotMissingPermissions):
+            await ctx.send("I do not have permissions to manage channels.")
+            
     @command(name = "resumeticket", help = "Resume an old modmail ticket by DM-ing the bot and sending the server ID you want to send a message to.")
     async def modmail_resume_ticket(self, ctx, guild: GuildConverter):
         if not ctx.message.author.bot:
@@ -164,7 +183,7 @@ class Modmail(Cog):
                         await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2;", category.id, ctx.message.author.id)
                         user_embed = Embed(title = "Ticket Resumed!", description = f"Ticket has been resumed with {guild.name}! Please use the `send` command to send any messages for this ticket. To pause this ticket use `pauseticket`.", color = 0x00FF00, timestamp = datetime.utcnow())
                         user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
-                        await ctx.message.channel.send(embed = user_embed)
+                        await ctx.send(embed = user_embed)
                     else:
                         await ctx.send("You do not have an existing ticket with this server! Please use `newticket` in order to create a new ticket with the server.")
                 else:
@@ -220,7 +239,7 @@ class Modmail(Cog):
                     user_embed = Embed(title = "Message sent", description = f"New message sent to {category.guild.name}.", color = 0x00FF00, timestamp = datetime.utcnow())
                     user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     user_embed.add_field(name = "Message:", value = mail, inline = False)
-                    await ctx.message.channel.send(embed = user_embed)
+                    await ctx.send(embed = user_embed)
                 else:
                     query = await db.fetchrow("Select ModmailCategoryID from guilds WHERE GuildID = $1", ctx.message.guild.id)
                     category = ctx.message.guild.get_channel(query.get('modmailcategoryid'))
@@ -235,7 +254,7 @@ class Modmail(Cog):
                     mod_embed = Embed(title = "Message sent", description = f"New message sent to {user.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     mod_embed.add_field(name = "Message:", value = mail, inline = False)
-                    await ctx.message.channel.send(embed = mod_embed)
+                    await ctx.send(embed = mod_embed)
 
                     user_embed = Embed(title = "New Message", description = f"A new message received from {category.guild.name}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
@@ -270,7 +289,7 @@ class Modmail(Cog):
                 mod_embed = Embed(title = "Message sent", description = f"New message sent to {user.mention}.", color = 0x00FF00, timestamp = datetime.utcnow())
                 mod_embed.set_thumbnail(url = category.guild.icon_url)
                 mod_embed.add_field(name = "Message:", value = mail, inline = False)
-                await ctx.message.channel.send(embed = mod_embed)
+                await ctx.send(embed = mod_embed)
 
                 user_embed = Embed(title = "New Message", description = f"A new message received from {category.guild.name}.", color = 0x00FF00, timestamp = datetime.utcnow())
                 user_embed.set_thumbnail(url = category.guild.icon_url)
@@ -282,7 +301,7 @@ class Modmail(Cog):
         if isinstance(exception, MissingRequiredArgument):
             await ctx.send("Please write a message after the command to send.")
 
-    @command(name = "edit", help = "Edit the last sent message in a modmail ticket.")
+    @command(name = "edit", help = "Edit the last sent message in a modmail ticket. I will only check the last 10 messages sent by anyone in the channel.")
     async def edit(self, ctx, *, mail: str):
        if not ctx.message.author.bot:
             if mail == None or mail.strip() == "":
@@ -306,9 +325,12 @@ class Modmail(Cog):
                         if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
                             channel = this_channel
                     member = category.guild.get_member(ctx.message.author.id) 
-                    mod_message = utils.find(predicate =  lambda m: m.embeds[0].title == "New Message", seq = await channel.history(limit = 10).flatten())
-                    user_message = utils.find(predicate =  lambda m: m.embeds[0].title == "Message sent", seq = await channel.history(limit = 10).flatten())
-                    
+                    try:
+                        mod_message = utils.find(predicate =  lambda m: self.embed_check(m, "New Message"), seq = await channel.history(limit = 10).flatten())
+                        user_message = utils.find(predicate =  lambda m: self.embed_check(m, "Message sent"), seq = await ctx.message.channel.history(limit = 10).flatten())
+                    except:
+                        await ctx.send("There is no message to edit.")
+                        return
                     mod_embed = Embed(title = "New Message", description = f"A new message received from {ctx.message.author.mention}.", color = member.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     mod_embed.add_field(name = "Message:", value = mail, inline = False)
@@ -329,9 +351,13 @@ class Modmail(Cog):
                         await ctx.send("This user has been blacklisted from sending messages to this server.")
                         return
                     user = self.bot.get_user(int(ctx.message.channel.topic))
-                    mod_message = utils.find(predicate =  lambda m: m.embeds[0].title == "Message sent", seq = await ctx.message.channel.history(limit = 10).flatten())
-                    user_message = utils.find(predicate =  lambda m: m.embeds[0].title == "New Message", seq = await ctx.message.channel.history(limit = 10).flatten())
-
+                    dm_channel = await user.create_dm()
+                    try:
+                        mod_message = utils.find(predicate = lambda m: self.embed_check(m, "Message sent"), seq = await ctx.message.channel.history(limit = 10).flatten())
+                        user_message = utils.find(predicate = lambda m: self.embed_check(m, "New Message"), seq = await dm_channel.history(limit = 10).flatten())
+                    except:
+                        await ctx.send("There is no message to edit.")
+                        return
                     mod_embed = Embed(title = "Message sent", description = f"New message sent to {user.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     mod_embed.add_field(name = "Message:", value = mail, inline = False)
@@ -341,6 +367,68 @@ class Modmail(Cog):
                     user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     user_embed.add_field(name = "Message:", value = mail, inline = False)
                     await user_message.edit(embed = user_embed)
+    
+    @edit.error
+    async def edit_error(self, ctx, exception):
+        if isinstance(exception, MissingRequiredArgument):
+            await ctx.send("Please write a message after the command to send.")
+        elif isinstance(exception, BotMissingPermissions):
+            await ctx.send("I do not have permissions to manage messages.")
+    
+    @command(name = "delete", help = "Delete the last sent message in a modmail ticket. I will only check the last 10 messages sent by anyone in the channel.")
+    async def delete(self, ctx):
+       if not ctx.message.author.bot:
+            async with self.db.acquire() as db:
+                is_dm_channel = isinstance(ctx.message.channel, DMChannel)
+                if is_dm_channel:
+                    query = await db.fetchrow("Select CurrentTicketID from modmail WHERE UserID = $1", ctx.message.author.id)
+                    category_id = query.get('currentticketid')
+                    if category_id == 0:
+                        await ctx.send("Please specify which server to send this message to! Either use `newticket` or `resumeticket`.")
+                        return
+                    category = self.bot.get_channel(category_id)
+                    blacklist_query = await db.fetchrow("SELECT UserID from blacklist WHERE GuildID = $1", category.guild.id)
+                    if blacklist_query:
+                        await ctx.send("You have been blacklisted from sending messages to this server. For more details please contact the mods from this server.")
+                        return
+                    channel = None
+                    for this_channel in category.text_channels:
+                        if int(this_channel.topic or "1") == ctx.message.author.id and this_channel.name.lower() == ctx.message.author.name.lower():
+                            channel = this_channel
+                    try:
+                        mod_message = utils.find(predicate =  lambda m: self.embed_check(m, "New Message"), seq = await channel.history(limit = 10).flatten())
+                        user_message = utils.find(predicate =  lambda m: self.embed_check(m, "Message sent"), seq = await ctx.message.channel.history(limit = 10).flatten())
+                    except:
+                        await ctx.send("There is no message to delete.")
+                        return
+                    await mod_message.delete()
+                    await user_message.delete()
+                else:
+                    query = await db.fetchrow("Select ModmailCategoryID from guilds WHERE GuildID = $1", ctx.message.guild.id)
+                    category = ctx.message.guild.get_channel(query.get('modmailcategoryid'))
+                    if not (ctx.message.channel in list(category.text_channels)):
+                        await ctx.send("This commmand can only be used in DMs with me or in a ticket channel in a server.")
+                        return
+                    blacklist_query = await db.fetchrow("SELECT UserID from blacklist WHERE GuildID = $1", category.guild.id)
+                    if blacklist_query:
+                        await ctx.send("This user has been blacklisted from sending messages to this server.")
+                        return
+                    user = self.bot.get_user(int(ctx.message.channel.topic))
+                    dm_channel = await user.create_dm()
+                    try:
+                        mod_message = utils.find(predicate = lambda m: self.embed_check(m, "Message sent"), seq = await ctx.message.channel.history(limit = 10).flatten())
+                        user_message = utils.find(predicate = lambda m: self.embed_check(m, "New Message"), seq = await dm_channel.history(limit = 10).flatten())
+                    except:
+                        await ctx.send("There is no message to delete.")
+                        return
+                    await mod_message.delete()
+                    await user_message.delete()
+    
+    @delete.error
+    async def delete_error(self, ctx, exception):
+        if isinstance(exception, BotMissingPermissions):
+            await ctx.send("I do not have permissions to manage messages.")
+    
 
     @command(name = "close", help = "Close a modmail ticket in the specific channel.")
     async def close(self, ctx):
@@ -360,9 +448,16 @@ class Modmail(Cog):
                     await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2", 0, user.id)
                     
                     filename = f"./data/modmail_logs/{user.display_name}_{datetime.utcnow()}.txt"
+                    chat_logs = await ctx.channel.history(limit= 200).flatten()
                     with open(filename, "w") as file:
-                        async for msg in ctx.channel.history(limit= 100):
-                            file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+                        for msg in reversed(chat_logs):
+                            if msg.embeds:
+                                file.write(f"{msg.created_at} - {msg.author.display_name}:\n{msg.embeds[0].title}:\n{msg.embeds[0].description}\n")    
+                                if msg.embeds[0].fields:
+                                    for field in msg.embeds[0].fields:
+                                        file.write(f"{field.name} {field.value}\n")
+                            else:
+                                file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
 
                     mod_embed = Embed(title = "Ticket closed", description = f"Ticket with {user.mention} has been closed by {ctx.message.author.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
@@ -373,8 +468,14 @@ class Modmail(Cog):
                     user_embed.set_thumbnail(url = ctx.message.author.avatar_url)
                     await user.send(embed = user_embed)
                     await ctx.message.channel.delete()
+                    os.remove(filename)
                 else:
                     await ctx.send("Please enable modmail in this server to use this command.")
+    
+    @close.error
+    async def close_error(self, ctx, exception):
+        if isinstance(exception, BotMissingPermissions):
+            await ctx.send("I do not have permissions to manage channels.")
     
     @command(name = "aclose", help = "Anonymously close a modmail ticket in the specific channel.")
     async def aclose(self, ctx):
@@ -394,9 +495,16 @@ class Modmail(Cog):
                     await db.execute("UPDATE modmail SET CurrentTicketID = $1 WHERE UserID = $2", 0, user.id)
                     
                     filename = f"./data/modmail_logs/{user.display_name}_{datetime.utcnow()}.txt"
+                    chat_logs = await ctx.channel.history(limit= 200).flatten()
                     with open(filename, "w") as file:
-                        async for msg in ctx.channel.history(limit= 100):
-                            file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+                        for msg in reversed(chat_logs):
+                            if msg.embeds:
+                                file.write(f"{msg.created_at} - {msg.author.display_name}:\n{msg.embeds[0].title}:\n{msg.embeds[0].description}\n")    
+                                if msg.embeds[0].fields:
+                                    for field in msg.embeds[0].fields:
+                                        file.write(f"{field.name} {field.value}\n")
+                            else:
+                                file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
 
                     mod_embed = Embed(title = "Ticket closed", description = f"Ticket with {user.mention} has been closed by {ctx.message.author.mention}.", color = ctx.message.author.color, timestamp = datetime.utcnow())
                     mod_embed.set_thumbnail(url = ctx.message.author.avatar_url)
@@ -407,8 +515,14 @@ class Modmail(Cog):
                     user_embed.set_thumbnail(url = ctx.message.guild.icon_url)
                     await user.send(embed = user_embed)
                     await ctx.message.channel.delete()
+                    os.remove(filename)
                 else:
                     await ctx.send("Please enable modmail in this server to use this command.")
+    
+    @aclose.error
+    async def aclose_error(self, ctx, exception):
+        if isinstance(exception, BotMissingPermissions):
+            await ctx.send("I do not have permissions to manage channels.")
     
     @command(name = "blacklist", help = "Add a user to a blacklist to block them from using modmail tickets.")
     @has_permissions(manage_guild = True)

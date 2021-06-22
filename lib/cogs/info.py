@@ -1,5 +1,8 @@
 from collections import namedtuple
 from datetime import datetime
+from lib.cogs.help import HelpMenu
+
+from discord.ext.menus import MenuPages
 from lib.bot import Bot
 from typing import Optional
 from discord import Embed, embeds
@@ -12,7 +15,14 @@ class Info(Cog):
         self.bot = bot
 
     @command(name = "userinfo", aliases = ["ui", "memberinfo", "mi"], help = "Get information about a specified user.")
-    async def user_info(self, ctx, target: Optional[Member]):
+    async def user_info(self, ctx, target: Optional[Member], passed: Optional[str]):
+        if passed == "help":
+            menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+            await menu.start(ctx)
+            return
         member = target or ctx.author
         embed = Embed(title = "User Information", color = member.color, timestamp = datetime.utcnow())
         embed.set_thumbnail(url = member.avatar_url)
@@ -28,7 +38,14 @@ class Info(Cog):
         await ctx.send(embed = embed)
 
     @command(name = "serverinfo", aliases = ["si", "guildinfo", "gi"], help = "Get information about a specified server.")
-    async def server_info(self, ctx):
+    async def server_info(self, ctx, passed: Optional[str]):
+        if passed == "help":
+            menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+            await menu.start(ctx)
+            return
         embed = Embed(title="Server information",
 					  color=ctx.guild.owner.color,
 					  timestamp=datetime.utcnow())

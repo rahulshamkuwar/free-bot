@@ -7,6 +7,8 @@ from discord.channel import DMChannel, TextChannel
 from discord import Member
 from discord.ext.commands import command, has_permissions, Cog, MissingPermissions
 from discord.ext.commands.errors import BadArgument, MissingRequiredArgument
+from discord.ext.menus import MenuPages
+from lib.cogs.help import HelpMenu
 
 
 class Exp(Cog):
@@ -39,7 +41,7 @@ class Exp(Cog):
         if not self.bot.ready:
             self.bot.cogs_ready.ready_up("exp")
 
-    @command(name = "exp", help = "Select if to have experience levels or not. Send enabled or disabled after the command to specify which one.", aliases = ["experience", "xp"])
+    @command(name = "exp", help = "Select if to have experience levels or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.", aliases = ["experience", "xp"])
     @has_permissions(manage_guild = True)
     async def exp(self, ctx, passed: str):
         async with self.db.acquire() as db:
@@ -49,6 +51,12 @@ class Exp(Cog):
             elif passed == "disabled":
                 await db.execute("UPDATE guilds SET (Experience, ExperienceID) = ($1, $2) WHERE GuildID = ($3);", passed, 0, ctx.guild.id)
                 await ctx.send("Experience has been disabled.")
+            elif passed == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
             else:
                 await ctx.send("Please specify `enabled` or `disabled` after the command to enable or disable experience levels.")
     
@@ -71,7 +79,7 @@ class Exp(Cog):
                 await db.execute("UPDATE guilds SET ExperienceID = ($1) WHERE GuildID = ($2);", channel.id, ctx.guild.id)
                 await ctx.send("Experience channel set.")
             elif exp == "disabled":
-                await ctx.send("Please enable experience with the `exp` command")
+                await ctx.send("Please enable experience with the `exp` command.")
     
     @exp_channel.error
     async def exp_channel_error(self, ctx, exception):

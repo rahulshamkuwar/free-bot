@@ -1,4 +1,6 @@
+from lib.cogs.help import HelpMenu
 from discord.ext.commands import command, has_permissions, Cog, CheckFailure
+from discord.ext.menus import MenuPages
 from lib.bot import Bot
 
 
@@ -10,7 +12,13 @@ class Misc(Cog):
     @command(name = "prefix", help = "Select a prefix to trigger Freebot's functions.")
     @has_permissions(manage_guild = True)
     async def change_prefix(self, ctx, new_prefix: str):
-        if len(new_prefix) > 5:
+        if new_prefix == "help":
+                menu = MenuPages(source=HelpMenu(ctx, list(self.get_commands())),
+							 delete_message_after=True,
+                             clear_reactions_after = True,
+							 timeout=60.0)
+                await menu.start(ctx)
+        elif len(new_prefix) >= 5:
             await ctx.send("The prefix cannot be longer than 5 characters in length.")
         else:
             async with self.db.acquire() as db: 

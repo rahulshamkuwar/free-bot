@@ -103,7 +103,7 @@ Note: In order to get logs for roles, look at `logs`.
 </figure>
 
 ### `autoprofanity`
-`autoprofanity` will delete any words sent by a user and send a message saying the user cannot say that word. Auto deletes its own message after 5 seconds. The bot will ignore anyone with permissions to manage server. Send enabled or disabled after the command to specify which one. Also requires permissions to manage server from the mod. Profanity checks are done with the `better_profanity` library.
+`autoprofanity` will delete any words sent by a user and send a message saying the user cannot say that word. Auto deletes its own message after 5 seconds. The bot will ignore anyone with permissions to manage server. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command. Also requires permissions to manage server from the mod. Profanity checks are done with the `better_profanity` library.
 
 <figure>
     <img src = "images/autoprof.png">
@@ -141,7 +141,7 @@ Note: In order to get logs for roles, look at `logs`.
 The bot can keep track of user experience and rank in the guild. It is enabled by default but can be disabled by using `exp`. You can also set up a specific channel to send messages when a user levels up by using `expchannel`. By default the message is sent to the channel where the user's last sent message was. Users can also check their own and other user's rank and level with the `rank` and `level` commands. If you want to remove the channel for exp, you can use `remexpchannel`.
 
 ### `exp`
-`exp` lets you select if to have experience levels or not. Send enabled or disabled after the command to specify which one.
+`exp` lets you select if to have experience levels or not. Send `enabled` or `disabled` after the command to specify which one. To view a list of commands, send `help` after the command.
 
 <figure>
     <img src= "images/exp.png">

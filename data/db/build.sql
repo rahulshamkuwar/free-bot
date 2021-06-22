@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS guilds (
     ProfanityList TEXT[],
     Modmail TEXT DEFAULT 'disabled',
     ModmailCategoryID BIGINT DEFAULT 0,
-    ModmailNotificationID BIGINT DEFAULT 0
+    ModmailNotificationID BIGINT DEFAULT 0,
+    Moderation TEXT DEFAULT 'enabled'
     -- AutoLinks TEXT DEFAULT 'enabled',
     -- AutoLinksID BIGINT DEFAULT 0
 );

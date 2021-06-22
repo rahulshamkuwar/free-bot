@@ -54,9 +54,12 @@ class Bot(BotBase):
         super().__init__(command_prefix = get_prefix, owner_ids = OWNER_IDS, intents = Intents.all())
     
     def setup(self):
+        self.load_extension(f"lib.cogs.help")
+        print("help cog loaded")
         for cog in COGS:
-            self.load_extension(f"lib.cogs.{cog}")
-            print(f"{cog} cog loaded")
+            if cog != "help":
+                self.load_extension(f"lib.cogs.{cog}")
+                print(f"{cog} cog loaded")
         print("setup complete")
     
     async def start_db(self):
