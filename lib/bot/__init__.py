@@ -95,6 +95,7 @@ class Bot(BotBase):
         async with self.cxn.acquire() as db:
             await db.execute("DELETE FROM guilds WHERE GuildID = $1", guild.id)
             await db.execute("DELETE FROM exp WHERE GuildID = $1", guild.id)
+            await db.execute("DELETE FROM blacklist WHERE GuildID = $1", guild.id)
     
     async def update_profanity(self, guild):
         prof_list = ["anal","anus","ballsack","blowjob","blow job","boner","clitoris","cock","cunt","dick","dildo","dyke","fag","fuck","jizz","labia","muff","nigger","nigga","penis","piss","pussy","scrotum","sex","shit","slut","smegma","spunk","twat","vagina","wank","whore"]
