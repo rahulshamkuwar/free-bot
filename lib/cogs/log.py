@@ -1,4 +1,5 @@
 from datetime import datetime
+from re import T
 from lib.cogs.help import HelpMenu
 
 from discord.activity import Spotify, Streaming
@@ -76,12 +77,16 @@ class Log(Cog):
                 if send_notif == "enabled":
                     activity_list = list(after.activities)
                     is_streaming = False
+                    was_streaming = False
                     stream = None
                     for activity in activity_list:
                         if isinstance(activity, Streaming):
                             is_streaming = True
                             stream = activity
-                    if is_streaming:
+                    for activity in list(before.activities):
+                        if isinstance(activity, Streaming):
+                            was_streaming = True
+                    if is_streaming and not was_streaming:
                         listen_role_id = query.get("streamlistenroleid")
                         if after.roles.__contains__(after.guild.get_role(listen_role_id)):
                             channel_id = query.get("streamchannelid")

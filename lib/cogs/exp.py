@@ -113,8 +113,13 @@ class Exp(Cog):
     async def level(self, ctx, member: Optional[Member]):
         member = member or ctx.author
         async with self.db.acquire() as db:
-            query = await db.fetchrow("SELECT XP, UserLevel FROM exp WHERE UserID = ($1) AND GuildID = ($2);", member.id, ctx.guild.id) or (None, None)
-            xp, lvl = query.get("xp"), query.get("userlevel")
+            query = await db.fetchrow("SELECT Experience FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            exp = query.get('experience')
+            if exp == "disabled":
+                await ctx.send("Please enable experience with the `exp` command.")
+                return
+            xp_query = await db.fetchrow("SELECT XP, UserLevel FROM exp WHERE UserID = ($1) AND GuildID = ($2);", member.id, ctx.guild.id) or (None, None)
+            xp, lvl = query.get("xp"), xp_query.get("userlevel")
             try:
                 await ctx.send(f"{member.display_name} is on level {lvl:,} with {xp:,} XP.")
             except ValueError:
@@ -129,6 +134,11 @@ class Exp(Cog):
     async def rank(self, ctx, member: Optional[Member]):
         member = member or ctx.author
         async with self.db.acquire() as db:
+            query = await db.fetchrow("SELECT Experience FROM guilds WHERE GuildID = ($1);", ctx.guild.id)
+            exp = query.get('experience')
+            if exp == "disabled":
+                await ctx.send("Please enable experience with the `exp` command.")
+                return
             query = await db.fetch(
                 """
                 SELECT 
