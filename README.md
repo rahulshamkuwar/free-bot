@@ -1,3 +1,6 @@
+# Deprecated
+Since Discord.py is no longer supported, this bot will no longer receive bug fixes.
+
 # Freebot
 Free, open source Discord chat bot
 
